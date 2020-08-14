@@ -1,0 +1,4 @@
+com\example\phoenix\models\EventPost.class
+com\example\phoenix\PhoenixClient.class
+com\example\phoenix\models\EventType.class
+com\example\phoenix\PhoenixClientController.class
