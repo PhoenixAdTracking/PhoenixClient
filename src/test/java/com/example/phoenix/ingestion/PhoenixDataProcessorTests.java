@@ -1,6 +1,7 @@
 package com.example.phoenix.ingestion;
 
 import com.example.phoenix.PhoenixClient;
+import com.example.phoenix.models.Business;
 import com.example.phoenix.models.User;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +56,17 @@ public class PhoenixDataProcessorTests {
         phoenixDataProcessor.createUser(testUser);
         Mockito.verify(mockConnection).prepareStatement(
                 "INSERT INTO users (username, password, firstname, lastname)"
-                + "VALUES (\"" + testUsername + "\", \"" + testPassword + "\", \"" + testFirstName + "\", \"" + testLastName + "\");",
+                + " VALUES (\"" + testUsername + "\", \"" + testPassword + "\", \"" + testFirstName + "\", \"" + testLastName + "\");",
+                Statement.RETURN_GENERATED_KEYS);
+    }
+
+    @Test
+    public void testWhenCreateBusinessIsGivenBusinessObjectThenProperSqlQueryFormed() throws Exception {
+        final String testName = "testName";
+        final Business testBusiness = new Business(-1, testName);
+        phoenixDataProcessor.createBusiness(testBusiness);
+        Mockito.verify(mockConnection).prepareStatement(
+                "INSERT INTO businesses (name) VALUES (\"" + testName + "\");",
                 Statement.RETURN_GENERATED_KEYS);
     }
 }

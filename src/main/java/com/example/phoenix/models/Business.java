@@ -1,5 +1,6 @@
 package com.example.phoenix.models;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Generated;
 
@@ -8,6 +9,7 @@ import lombok.Generated;
  */
 @Data
 @Generated
+@AllArgsConstructor
 public class Business {
     /**
      * The id of the business.

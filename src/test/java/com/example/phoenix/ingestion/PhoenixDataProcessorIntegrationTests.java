@@ -48,4 +48,13 @@ public class PhoenixDataProcessorIntegrationTests {
         Assert.assertEquals(testPassword, resultSet.getString("password"));
     }
 
+    @Test
+    public void testWhenSearchingForTestBusinessInDatabaseThenTestBusinessIsFound() throws Exception{
+        final String testName = "testBusiness";
+
+        final ResultSet resultSet = basicDataSource.getConnection().prepareStatement("SELECT * FROM businesses WHERE businessId = -1").executeQuery();
+        resultSet.next();
+        Assert.assertEquals(testName, resultSet.getString("name"));
+    }
+
 }
