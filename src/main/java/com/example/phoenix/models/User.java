@@ -36,4 +36,10 @@ public class User {
      * The password the user will use to log in.
      */
     private String password;
+
+    /**
+     * NOTE: Only used as part of a Post request to tie a user to a business.
+     * The id of the business that this user is attached to.
+     */
+    private int businessId;
 }

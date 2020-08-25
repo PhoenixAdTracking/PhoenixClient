@@ -52,7 +52,8 @@ public class PhoenixDataProcessorTests {
                 testFirstName,
                 testLastName,
                 testUsername,
-                testPassword);
+                testPassword,
+                -1);
         phoenixDataProcessor.createUser(testUser);
         Mockito.verify(mockConnection).prepareStatement(
                 "INSERT INTO users (username, password, firstname, lastname)"
