@@ -1,5 +1,6 @@
 package com.example.phoenix.models;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Generated;
 
@@ -7,6 +8,7 @@ import lombok.Generated;
  * POJO for User info.
  */
 @Data
+@AllArgsConstructor
 @Generated
 public class User {
 
