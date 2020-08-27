@@ -26,6 +26,11 @@ public class PhoenixDataProcessor {
     private static final String BUSINESS_ID_COLUMN = "businessId";
 
     /**
+     * Title of the user to businesses table Id column
+     */
+    private static final String USER_TO_BUSINESS_ID_COLUMN = "businessId";
+
+    /**
      * Access point for the Phoenix DB.
      */
     private final BasicDataSource phoenixDb;
@@ -41,9 +46,13 @@ public class PhoenixDataProcessor {
      * @throws SQLException if there is an issue with executing the SQL query.
      */
     public int createUser (@NonNull User user) throws SQLException{
-        final String query = "INSERT INTO users (username, password, firstname, lastname)"
+        final String newUserStatement = "INSERT INTO users (username, password, firstname, lastname)"
                         + " VALUES (\"" + user.getUsername() + "\", \"" + user.getPassword() + "\", \"" + user.getFirstname() + "\", \"" + user.getLastname() + "\");";
-        return insertRow(query, USER_ID_COLUMN);
+        final int userId = insertRow(newUserStatement, USER_ID_COLUMN);
+        final String userToBusinessStatement = "INSERT INTO user_to_business (userId, businessId, active, role)"
+                + " VALUES (" + userId + ", " + user.getBusinessId() + ", 1, \"" + user.getRole() + "\");";
+        insertRow(userToBusinessStatement, USER_TO_BUSINESS_ID_COLUMN);
+        return userId;
     }
 
     /**
@@ -53,8 +62,8 @@ public class PhoenixDataProcessor {
      * @throws SQLException if there is an issue with executing the SQL query.
      */
     public int createBusiness (@NonNull Business business) throws SQLException{
-        final String query = "INSERT INTO businesses (name) VALUES (\"" + business.getName() + "\");";
-        return insertRow(query, BUSINESS_ID_COLUMN);
+        final String newBusinessStatement = "INSERT INTO businesses (name) VALUES (\"" + business.getName() + "\");";
+        return insertRow(newBusinessStatement, BUSINESS_ID_COLUMN);
     }
 
     /**

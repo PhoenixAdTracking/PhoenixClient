@@ -42,4 +42,10 @@ public class User {
      * The id of the business that this user is attached to.
      */
     private int businessId;
+
+    /**
+     * NOTE: Only used as part of a Post request to tie a user to a business.
+     * The role of the user for a business.
+     */
+    private String role;
 }
