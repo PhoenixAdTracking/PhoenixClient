@@ -23,14 +23,8 @@ import java.sql.ResultSet;
         classes = DatabaseConfig.class)
 public class PhoenixDataProcessorIntegrationTests {
 
-    @Resource(name = "PhoenixDB")
+    @Autowired
     private BasicDataSource basicDataSource;
-
-    private PhoenixDataProcessor phoenixDataProcessor;
-    @BeforeEach
-    public void setup() {
-        phoenixDataProcessor = new PhoenixDataProcessor(basicDataSource);
-    }
 
 
     @Test

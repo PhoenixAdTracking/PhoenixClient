@@ -14,14 +14,7 @@ import java.sql.SQLException;
 public class PhoenixClientController {
 
     @Resource(name = "PhoenixDB")
-    private BasicDataSource phoenixDb;
-
     private PhoenixDataProcessor dataProcessor;
-
-    @PostConstruct
-    public void setup() {
-        this.dataProcessor = new PhoenixDataProcessor(phoenixDb);
-    }
 
     @GetMapping("/ping")
     public String ping() {
