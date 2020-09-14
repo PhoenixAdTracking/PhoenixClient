@@ -25,6 +25,11 @@ public class ExternalDataFetcherIntegrationTest {
      */
     final static private String FB_TEST_AD_ACCOUNT_ID = System.getenv("FACEBOOK_TEST_AD_ACCOUNT_ID");
 
+    /**
+     * Ad Campaign Id used to run tests.
+     */
+    final static private String FB_TEST_CAMPAIGN_ID = System.getenv("FACEBOOK_TEST_CAMPAIGN_ID");
+
     private ExternalDataFetcher externalDataFetcher = new ExternalDataFetcher();
 
     @Test
@@ -45,6 +50,21 @@ public class ExternalDataFetcherIntegrationTest {
                 .impressions(2227)
                 .clicks(119)
                 .frequency(1.06606)
+                .build();
+        Assert.assertTrue(insights.contains(testInsight));
+    }
+
+    @Test
+    public void whenGivenCampaignIdAndAccessTokenThenGetAdSetsReturnsInsights() throws Exception {
+        final List<Insights> insights = externalDataFetcher.getAdSets(FB_ACCESS_TOKEN, FB_TEST_CAMPAIGN_ID);
+        final Insights testInsight = Insights.builder()
+                .type(InsightType.AD_SET)
+                .name("Clinique | 18+ | US | MF")
+                .id("23844509413440218")
+                .spend(29.61)
+                .frequency(1.064516)
+                .impressions(1320)
+                .clicks(97)
                 .build();
         Assert.assertTrue(insights.contains(testInsight));
     }
