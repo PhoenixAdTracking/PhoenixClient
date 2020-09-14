@@ -1,8 +1,11 @@
 package com.example.phoenix.ingestion;
 
+import com.example.phoenix.models.InsightType;
+import com.example.phoenix.models.Insights;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 public class ExternalDataFetcherIntegrationTest {
@@ -13,9 +16,14 @@ public class ExternalDataFetcherIntegrationTest {
     final static private String FB_ACCESS_TOKEN = System.getenv("FACEBOOK_TEST_ACCESS_TOKEN");
 
     /**
-     * Note, this token expires 2 months after September 2nd, 2020.
+     * User Id used to run tests.
      */
     final static private String FB_TEST_USER_ID = System.getenv("FACEBOOK_TEST_USER_ID");
+
+    /**
+     * Ad Account Id used to run tests
+     */
+    final static private String FB_TEST_AD_ACCOUNT_ID = System.getenv("FACEBOOK_TEST_AD_ACCOUNT_ID");
 
     private ExternalDataFetcher externalDataFetcher = new ExternalDataFetcher();
 
@@ -24,5 +32,20 @@ public class ExternalDataFetcherIntegrationTest {
         final Map<String, String> testMap = externalDataFetcher.getFacebookAdAccounts(FB_ACCESS_TOKEN, FB_TEST_USER_ID);
         Assert.assertFalse(testMap.isEmpty());
         Assert.assertTrue(testMap.containsKey("Genesis Allure LLC 2"));
+    }
+
+    @Test
+    public void whenGivenAccountIdAndAccessTokenThenGetAdCampaignsReturnsInsights() throws Exception {
+        final List<Insights> insights = externalDataFetcher.getAdCampaigns(FB_ACCESS_TOKEN, FB_TEST_AD_ACCOUNT_ID);
+        final Insights testInsight = Insights.builder()
+                .type(InsightType.CAMPAIGN)
+                .name("Genesis Allure Test")
+                .id("23844130192950218")
+                .spend(98.23)
+                .impressions(2227)
+                .clicks(119)
+                .frequency(1.06606)
+                .build();
+        Assert.assertTrue(insights.contains(testInsight));
     }
 }
