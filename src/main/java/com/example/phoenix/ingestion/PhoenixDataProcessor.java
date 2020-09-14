@@ -1,7 +1,10 @@
 package com.example.phoenix.ingestion;
 
 import com.example.phoenix.models.Business;
+import com.example.phoenix.models.InsightType;
+import com.example.phoenix.models.Insights;
 import com.example.phoenix.models.User;
+import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,6 +13,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -115,5 +119,13 @@ public class PhoenixDataProcessor {
     private ResultSet pullRows(@NonNull final String query) throws SQLException{
         final PreparedStatement sqlStatement = phoenixDb.getConnection().prepareStatement(query);
         return sqlStatement.executeQuery();
+    }
+
+    private List<Insights> getInsights(
+            @NonNull final InsightType insightType,
+            @NonNull final String accessKey,
+            @NonNull final String id) {
+
+        return ImmutableList.of();
     }
 }
