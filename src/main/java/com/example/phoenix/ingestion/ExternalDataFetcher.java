@@ -39,6 +39,18 @@ public class ExternalDataFetcher {
                     "clicks");
 
     /**
+     * Set of fields to be pulled for Ad Insights.
+     */
+    private static final List<String> FB_AD_INSIGHT_FIELDS =
+            ImmutableList.of(
+                    "ad_name",
+                    "ad_id",
+                    "frequency",
+                    "spend",
+                    "impressions",
+                    "clicks");
+
+    /**
      * Method for pulling a user's Ad Accounts and returning them as a Map of the account's name to its Id.
      * @param accessToken The access token for pulling this user's info.
      * @param userId The id of the User whose ad accounts need to be pulled.
@@ -110,6 +122,35 @@ public class ExternalDataFetcher {
                         .type(InsightType.AD_SET)
                         .name(insights.getFieldAdsetName())
                         .id(insights.getFieldAdsetId())
+                        .spend(Double.valueOf(insights.getFieldSpend()))
+                        .frequency(Double.valueOf(insights.getFieldFrequency()))
+                        .impressions(Integer.valueOf(insights.getFieldImpressions()))
+                        .clicks(Integer.valueOf(insights.getFieldClicks()))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Method for pulling an Ad Set's ads and their relevant metrics.
+     * @param accessToken The Access Token needed for requesting a user's ad information.
+     * @param adSetId The Id of the ad campaign to pull Ad Set info for.
+     * @return A list of Insights objects.
+     * @throws Exception
+     */
+    public List<Insights> getAds(
+            @NonNull final String accessToken,
+            @NonNull final String adSetId) throws Exception{
+        final APIContext context = new APIContext(accessToken);
+        final AdSet adSet = new AdSet(adSetId, context);
+        return adSet.getInsights()
+                .setLevel("ad")
+                .setDatePreset(AdsInsights.EnumDatePreset.VALUE_LIFETIME)
+                .requestFields(FB_AD_INSIGHT_FIELDS)
+                .execute().stream()
+                .map(insights -> Insights.builder()
+                        .type(InsightType.AD)
+                        .name(insights.getFieldAdName())
+                        .id(insights.getFieldAdId())
                         .spend(Double.valueOf(insights.getFieldSpend()))
                         .frequency(Double.valueOf(insights.getFieldFrequency()))
                         .impressions(Integer.valueOf(insights.getFieldImpressions()))
