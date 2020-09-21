@@ -55,6 +55,7 @@ public class ExternalDataFetcherIntegrationTest {
                 .impressions(2227)
                 .clicks(119)
                 .frequency(1.06606)
+                .fbPurchases(0)
                 .build();
         Assert.assertTrue(insights.contains(testInsight));
     }
@@ -70,6 +71,7 @@ public class ExternalDataFetcherIntegrationTest {
                 .frequency(1.064516)
                 .impressions(1320)
                 .clicks(97)
+                .fbPurchases(1)
                 .build();
         Assert.assertTrue(insights.contains(testInsight));
     }
@@ -85,6 +87,7 @@ public class ExternalDataFetcherIntegrationTest {
                 .frequency(1.064516)
                 .impressions(1320)
                 .clicks(97)
+                .fbPurchases(1)
                 .build();
         Assert.assertTrue(insights.contains(testInsight));
     }

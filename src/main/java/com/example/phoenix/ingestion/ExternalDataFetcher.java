@@ -24,7 +24,8 @@ public class ExternalDataFetcher {
                     "frequency",
                     "spend",
                     "impressions",
-                    "clicks");
+                    "clicks",
+                    "actions");
 
     /**
      * Set of fields to be pulled for Ad Set Insights.
@@ -36,7 +37,8 @@ public class ExternalDataFetcher {
                     "frequency",
                     "spend",
                     "impressions",
-                    "clicks");
+                    "clicks",
+                    "actions");
 
     /**
      * Set of fields to be pulled for Ad Insights.
@@ -48,7 +50,8 @@ public class ExternalDataFetcher {
                     "frequency",
                     "spend",
                     "impressions",
-                    "clicks");
+                    "clicks",
+                    "actions");
 
     /**
      * Method for pulling a user's Ad Accounts and returning them as a Map of the account's name to its Id.
@@ -97,6 +100,7 @@ public class ExternalDataFetcher {
                             .frequency(Double.valueOf(insights.getFieldFrequency()))
                             .impressions(Integer.valueOf(insights.getFieldImpressions()))
                             .clicks(Integer.valueOf(insights.getFieldClicks()))
+                            .fbPurchases(getPurchasesFromInsights(insights))
                             .build())
                 .collect(Collectors.toList());
     }
@@ -126,6 +130,7 @@ public class ExternalDataFetcher {
                         .frequency(Double.valueOf(insights.getFieldFrequency()))
                         .impressions(Integer.valueOf(insights.getFieldImpressions()))
                         .clicks(Integer.valueOf(insights.getFieldClicks()))
+                        .fbPurchases(getPurchasesFromInsights(insights))
                         .build())
                 .collect(Collectors.toList());
     }
@@ -155,7 +160,21 @@ public class ExternalDataFetcher {
                         .frequency(Double.valueOf(insights.getFieldFrequency()))
                         .impressions(Integer.valueOf(insights.getFieldImpressions()))
                         .clicks(Integer.valueOf(insights.getFieldClicks()))
+                        .fbPurchases(getPurchasesFromInsights(insights))
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Helper method for extracting the number of purchases from a list of action insights.
+     * @param insights the AdsInsights object to pull purchases from.
+     * @return integer representing the number of purchases made on this ad object.
+     */
+    private int getPurchasesFromInsights(@NonNull final AdsInsights insights) {
+        return insights.getFieldActions().stream()
+                .filter(insight -> insight.getFieldActionType().equals("purchase"))
+                .findFirst()
+                .map(adsActionStats -> Integer.valueOf(adsActionStats.getFieldValue()))
+                .orElse(0);
     }
 }

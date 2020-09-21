@@ -5,6 +5,10 @@ import lombok.Data;
 
 @Data
 @Builder(toBuilder = true)
+
+/**
+ * POJO for Ad object insights
+ */
 public class Insights {
     private InsightType type;
     private String id;
@@ -16,8 +20,8 @@ public class Insights {
     private double cpm;
     private double cpc;
     private double ctr;
-    private double fbPurchases;
-    private double phoenixPurchases;
+    private int fbPurchases;
+    private int phoenixPurchases;
     private double fbCpa;
     private double cpa;
     private double fbCvr;
