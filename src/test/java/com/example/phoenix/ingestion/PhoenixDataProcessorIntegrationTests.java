@@ -1,7 +1,10 @@
 package com.example.phoenix.ingestion;
 
 import com.example.phoenix.DatabaseConfig;
+import com.example.phoenix.models.InsightType;
+import com.example.phoenix.models.Insights;
 import com.example.phoenix.models.User;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +19,7 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import javax.annotation.Resource;
 import java.net.URI;
 import java.sql.ResultSet;
+import java.util.List;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(
@@ -26,6 +30,8 @@ public class PhoenixDataProcessorIntegrationTests {
     @Autowired
     private BasicDataSource basicDataSource;
 
+    @Autowired
+    private PhoenixDataProcessor dataProcessor;
 
     @Test
     public void testWhenSearchingForTestUserInDatabaseThenTestUserIsFound() throws Exception{
@@ -49,6 +55,33 @@ public class PhoenixDataProcessorIntegrationTests {
         final ResultSet resultSet = basicDataSource.getConnection().prepareStatement("SELECT * FROM businesses WHERE businessId = -1").executeQuery();
         resultSet.next();
         Assert.assertEquals(testName, resultSet.getString("name"));
+    }
+
+    @Test
+    public void testWhenGivenCampaignInsightsThenAddPhoenixMetricsAddsCampaignMetrics() {
+        final List<Insights> testInsights = ImmutableList.of(Insights.builder().id("1").type(InsightType.CAMPAIGN).build());
+        final List<Insights> resultInsights = dataProcessor.addPhoenixMetrics(testInsights);
+        Assert.assertFalse(resultInsights.isEmpty());
+        final Insights insightWithPhoenixPurchases = resultInsights.get(0);
+        Assert.assertEquals(1, insightWithPhoenixPurchases.getPhoenixPurchases());
+    }
+
+    @Test
+    public void testWhenGivenAdSetInsightsThenAddPhoenixMetricsAddsCampaignMetrics() {
+        final List<Insights> testInsights = ImmutableList.of(Insights.builder().id("1").type(InsightType.AD_SET).build());
+        final List<Insights> resultInsights = dataProcessor.addPhoenixMetrics(testInsights);
+        Assert.assertFalse(resultInsights.isEmpty());
+        final Insights insightWithPhoenixPurchases = resultInsights.get(0);
+        Assert.assertEquals(1, insightWithPhoenixPurchases.getPhoenixPurchases());
+    }
+
+    @Test
+    public void testWhenGivenAdInsightsThenAddPhoenixMetricsAddsCampaignMetrics() {
+        final List<Insights> testInsights = ImmutableList.of(Insights.builder().id("1").type(InsightType.AD).build());
+        final List<Insights> resultInsights = dataProcessor.addPhoenixMetrics(testInsights);
+        Assert.assertFalse(resultInsights.isEmpty());
+        final Insights insightWithPhoenixPurchases = resultInsights.get(0);
+        Assert.assertEquals(1, insightWithPhoenixPurchases.getPhoenixPurchases());
     }
 
 }

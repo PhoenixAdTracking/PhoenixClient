@@ -13,8 +13,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.MessageFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Class used to organize all data ingestion business logic.
@@ -90,6 +94,54 @@ public class PhoenixDataProcessor {
                             .password(password)
                             .build());
         }
+    }
+
+    /**
+     * Method for adding Phoenix tracked event metrics to Insight objects.
+     * @param insights the Insights for ad objects.
+     * @return a deep copy of the parameter Inputs but with Phoenix metrics added to it.
+     */
+    public List<Insights> addPhoenixMetrics(@NonNull final List<Insights> insights) {
+        final String campaignQuery = "SELECT * FROM adevents WHERE campaignId = {0};";
+        final String adsetQuery = "SELECT * FROM adevents WHERE adsetId = {0};";
+        final String adQuery = "SELECT * FROM adevents WHERE adId = {0};";
+        final InsightType insightType = insights.stream().map(insight -> insight.getType()).findFirst().orElse(null);
+        switch (insightType) {
+            case AD:
+                return addPhoenixMetrics(insights, adQuery);
+            case AD_SET:
+                return addPhoenixMetrics(insights, adsetQuery);
+            case CAMPAIGN:
+            default:
+                return addPhoenixMetrics(insights, campaignQuery);
+        }
+    }
+
+    /**
+     * Method for adding Phoenix tracked event metrics to Insight objects.
+     * @param adsetInsights the Insights for a given ad object.
+     * @param queryTemplate the string used to query information for the ad objects from phoenixDB.
+     * @return a deep copy of the parameter Inputs but with Phoenix metrics added to it.
+     */
+    private List<Insights> addPhoenixMetrics(
+            @NonNull final List<Insights> adsetInsights,
+            @NonNull final String queryTemplate) {
+        return adsetInsights.stream()
+                .map(insights -> {
+                    int purchaseCounter = 0;
+                    try (ResultSet resultSet = pullRows(MessageFormat.format(queryTemplate, insights.getId()))){
+                        while (resultSet.next()) {
+                            final String interactionType = resultSet.getString("type");
+                            if (interactionType.equals("purchase")) {
+                                purchaseCounter++;
+                            }
+                        }
+                        return insights.toBuilder().phoenixPurchases(purchaseCounter).build();
+                    } catch (SQLException sqle) {
+                        return insights;
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
     /**
