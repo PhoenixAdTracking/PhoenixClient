@@ -3,21 +3,16 @@ package com.example.phoenix.ingestion;
 import com.example.phoenix.DatabaseConfig;
 import com.example.phoenix.models.InsightType;
 import com.example.phoenix.models.Insights;
-import com.example.phoenix.models.User;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.junit.Assert;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import javax.annotation.Resource;
-import java.net.URI;
 import java.sql.ResultSet;
 import java.util.List;
 
@@ -64,6 +59,7 @@ public class PhoenixDataProcessorIntegrationTests {
         Assert.assertFalse(resultInsights.isEmpty());
         final Insights insightWithPhoenixPurchases = resultInsights.get(0);
         Assert.assertEquals(1, insightWithPhoenixPurchases.getPhoenixPurchases());
+        Assert.assertEquals(1.00, insightWithPhoenixPurchases.getTotalSales(), 0.00);
     }
 
     @Test
@@ -73,6 +69,7 @@ public class PhoenixDataProcessorIntegrationTests {
         Assert.assertFalse(resultInsights.isEmpty());
         final Insights insightWithPhoenixPurchases = resultInsights.get(0);
         Assert.assertEquals(1, insightWithPhoenixPurchases.getPhoenixPurchases());
+        Assert.assertEquals(1.00, insightWithPhoenixPurchases.getTotalSales(), 0.00);
     }
 
     @Test
@@ -82,6 +79,7 @@ public class PhoenixDataProcessorIntegrationTests {
         Assert.assertFalse(resultInsights.isEmpty());
         final Insights insightWithPhoenixPurchases = resultInsights.get(0);
         Assert.assertEquals(1, insightWithPhoenixPurchases.getPhoenixPurchases());
+        Assert.assertEquals(1.00, insightWithPhoenixPurchases.getTotalSales(), 0.00);
     }
 
 }

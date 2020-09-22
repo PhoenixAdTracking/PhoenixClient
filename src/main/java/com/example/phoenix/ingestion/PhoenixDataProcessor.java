@@ -1,5 +1,6 @@
 package com.example.phoenix.ingestion;
 
+import com.example.phoenix.InsightsProcessor;
 import com.example.phoenix.models.Business;
 import com.example.phoenix.models.InsightType;
 import com.example.phoenix.models.Insights;
@@ -45,7 +46,13 @@ public class PhoenixDataProcessor {
      */
     private final BasicDataSource phoenixDb;
 
+    private final ExternalDataFetcher externalDataFetcher;
+
+    private final InsightsProcessor insightsProcessor;
+
     public PhoenixDataProcessor (@NonNull final BasicDataSource phoenixDb) {
+        this.externalDataFetcher = new ExternalDataFetcher();
+        this.insightsProcessor = new InsightsProcessor();
         this.phoenixDb = phoenixDb;
     }
 
@@ -129,14 +136,19 @@ public class PhoenixDataProcessor {
         return adsetInsights.stream()
                 .map(insights -> {
                     int purchaseCounter = 0;
+                    double totalAmount = 0.00;
                     try (ResultSet resultSet = pullRows(MessageFormat.format(queryTemplate, insights.getId()))){
                         while (resultSet.next()) {
                             final String interactionType = resultSet.getString("type");
                             if (interactionType.equals("purchase")) {
                                 purchaseCounter++;
+                                totalAmount += Double.valueOf(resultSet.getString("purchaseAmount"));
                             }
                         }
-                        return insights.toBuilder().phoenixPurchases(purchaseCounter).build();
+                        return insights.toBuilder()
+                                .phoenixPurchases(purchaseCounter)
+                                .totalSales(totalAmount)
+                                .build();
                     } catch (SQLException sqle) {
                         return insights;
                     }
