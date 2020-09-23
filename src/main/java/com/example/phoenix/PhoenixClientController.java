@@ -1,14 +1,15 @@
 package com.example.phoenix;
 
+import com.example.phoenix.ingestion.ExternalDataFetcher;
 import com.example.phoenix.ingestion.PhoenixDataProcessor;
 import com.example.phoenix.models.Business;
+import com.example.phoenix.models.Insights;
 import com.example.phoenix.models.User;
-import org.apache.commons.dbcp2.BasicDataSource;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.sql.SQLException;
+import java.util.List;
 
 @RestController
 public class PhoenixClientController {
@@ -29,5 +30,12 @@ public class PhoenixClientController {
     @PostMapping("/business")
     public int postBusiness(@RequestBody Business business) throws SQLException {
         return dataProcessor.createBusiness(business);
+    }
+
+    @GetMapping("/campaign")
+    public List<Insights> getCampaigns(
+            @RequestParam String accessToken,
+            @RequestParam String adAccountId) throws Exception {
+        return dataProcessor.getAdCampaignInsights(adAccountId, accessToken);
     }
 }

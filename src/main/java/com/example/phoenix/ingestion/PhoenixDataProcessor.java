@@ -103,6 +103,16 @@ public class PhoenixDataProcessor {
         }
     }
 
+    public List<Insights> getAdCampaignInsights(
+            @NonNull final String adAccountId,
+            @NonNull final String accessToken) throws Exception {
+        final List<Insights> campaignInsights = externalDataFetcher.getAdCampaigns(accessToken, adAccountId);
+        final List<Insights> insightsWithPhoenixMetrics = addPhoenixMetrics(campaignInsights);
+        final List<Insights> insightsWithCalculatedMetrics = insightsProcessor.calculateInsightMetrics(insightsWithPhoenixMetrics);
+
+        return insightsWithCalculatedMetrics;
+    }
+
     /**
      * Method for adding Phoenix tracked event metrics to Insight objects.
      * @param insights the Insights for ad objects.
