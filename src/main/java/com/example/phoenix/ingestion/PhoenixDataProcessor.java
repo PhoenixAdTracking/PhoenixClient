@@ -50,10 +50,13 @@ public class PhoenixDataProcessor {
 
     private final InsightsProcessor insightsProcessor;
 
+    private final GoogleSheetsService service;
+
     public PhoenixDataProcessor (@NonNull final BasicDataSource phoenixDb) {
         this.externalDataFetcher = new ExternalDataFetcher();
         this.insightsProcessor = new InsightsProcessor();
         this.phoenixDb = phoenixDb;
+        this.service = new GoogleSheetsService();
     }
 
     /**
@@ -103,13 +106,34 @@ public class PhoenixDataProcessor {
         }
     }
 
-    public List<Insights> getAdCampaignInsights(
-            @NonNull final String adAccountId,
-            @NonNull final String accessToken) throws Exception {
-        final List<Insights> campaignInsights = externalDataFetcher.getAdCampaigns(accessToken, adAccountId);
-        final List<Insights> insightsWithPhoenixMetrics = addPhoenixMetrics(campaignInsights);
+    /**
+     * Method for pulling a complete list of all Insights related to an Ad Account's Campaigns.
+     * @param adObjectId the id of the ad account to pull campaign insights for.
+     * @param accessToken access token required to pull platform insights.
+     * @param type the type of ad object to pull insights for.
+     * @return List of Insights.
+     * @throws Exception
+     */
+    public List<Insights> getInsights(
+            @NonNull final String adObjectId,
+            @NonNull final String accessToken,
+            @NonNull final InsightType type) throws Exception {
+        final List<Insights> platformInsights;
+        switch (type) {
+            case AD:
+                platformInsights = externalDataFetcher.getAds(accessToken, adObjectId);
+                break;
+            case AD_SET:
+                platformInsights = externalDataFetcher.getAdSets(accessToken, adObjectId);
+                break;
+            case CAMPAIGN:
+            default:
+                platformInsights = externalDataFetcher.getAdCampaigns(accessToken, adObjectId);
+                break;
+        }
+        final List<Insights> insightsWithPhoenixMetrics = addPhoenixMetrics(platformInsights);
         final List<Insights> insightsWithCalculatedMetrics = insightsProcessor.calculateInsightMetrics(insightsWithPhoenixMetrics);
-
+        service.setSheetInfo(insightsWithCalculatedMetrics);
         return insightsWithCalculatedMetrics;
     }
 
@@ -145,21 +169,26 @@ public class PhoenixDataProcessor {
             @NonNull final String queryTemplate) {
         return adsetInsights.stream()
                 .map(insights -> {
+                    System.out.println("Insight Id: " + insights.getId());
                     int purchaseCounter = 0;
                     double totalAmount = 0.00;
                     try (ResultSet resultSet = pullRows(MessageFormat.format(queryTemplate, insights.getId()))){
+                        System.out.println("Finished Pulling Phoenix Events");
                         while (resultSet.next()) {
+                            System.out.println("= Event Found =");
                             final String interactionType = resultSet.getString("type");
                             if (interactionType.equals("purchase")) {
                                 purchaseCounter++;
                                 totalAmount += Double.valueOf(resultSet.getString("purchaseAmount"));
                             }
                         }
+                        System.out.println("While Loop Finished");
                         return insights.toBuilder()
                                 .phoenixPurchases(purchaseCounter)
                                 .totalSales(totalAmount)
                                 .build();
                     } catch (SQLException sqle) {
+                        System.out.println("SQL Exception: " + sqle.getMessage());
                         return insights;
                     }
                 })
@@ -190,9 +219,14 @@ public class PhoenixDataProcessor {
      * @return ResultSet of the query.
      * @throws SQLException if there is an issue with executing the SQL query.
      */
-    private ResultSet pullRows(@NonNull final String query) throws SQLException{
-        final PreparedStatement sqlStatement = phoenixDb.getConnection().prepareStatement(query);
-        return sqlStatement.executeQuery();
+    private ResultSet pullRows(@NonNull final String query) {
+        try {
+            final PreparedStatement sqlStatement = phoenixDb.getConnection().prepareStatement(query);
+            return sqlStatement.executeQuery();
+        } catch (SQLException sqle) {
+            System.out.println(sqle.getMessage());
+            return null;
+        }
     }
 
     private List<Insights> getInsights(
