@@ -8,7 +8,7 @@ import com.example.phoenix.models.User;
 import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
 import org.apache.commons.dbcp2.BasicDataSource;
-import org.springframework.security.core.userdetails.UserDetails;
+//import org.springframework.security.core.userdetails.UserDetails;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -86,25 +86,25 @@ public class PhoenixDataProcessor {
         return insertRow(newBusinessStatement, BUSINESS_ID_COLUMN);
     }
 
-    /**
-     * Pull a user's information from the database, if present.
-     * @param username the username to track down.
-     * @return the ResultSet associated with this user.
-     */
-    public Optional<UserDetails> getUser (final String username) throws SQLException{
-        final String getUserQuery = "SELECT * FROM users WHERE userId = \"" + username + "\";";
-        final ResultSet queryResult = pullRows(getUserQuery);
-        if (!queryResult.next()) {
-            return Optional.empty();
-        } else {
-            final String password = queryResult.getString("password");
-            return Optional.of(
-                    org.springframework.security.core.userdetails.User
-                            .withUsername(username)
-                            .password(password)
-                            .build());
-        }
-    }
+//    /**
+//     * Pull a user's information from the database, if present.
+//     * @param username the username to track down.
+//     * @return the ResultSet associated with this user.
+//     */
+//    public Optional<UserDetails> getUser (final String username) throws SQLException{
+//        final String getUserQuery = "SELECT * FROM users WHERE userId = \"" + username + "\";";
+//        final ResultSet queryResult = pullRows(getUserQuery);
+//        if (!queryResult.next()) {
+//            return Optional.empty();
+//        } else {
+//            final String password = queryResult.getString("password");
+//            return Optional.of(
+//                    org.springframework.security.core.userdetails.User
+//                            .withUsername(username)
+//                            .password(password)
+//                            .build());
+//        }
+//    }
 
     /**
      * Method for pulling a complete list of all Insights related to an Ad Account's Campaigns.
