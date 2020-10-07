@@ -2,10 +2,7 @@ package com.example.phoenix;
 
 import com.example.phoenix.ingestion.ExternalDataFetcher;
 import com.example.phoenix.ingestion.PhoenixDataProcessor;
-import com.example.phoenix.models.Business;
-import com.example.phoenix.models.InsightType;
-import com.example.phoenix.models.Insights;
-import com.example.phoenix.models.User;
+import com.example.phoenix.models.*;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -23,34 +20,34 @@ public class PhoenixClientController {
         return "pinged!";
     }
 
-    @PostMapping("/user")
+    @PostMapping("/register/user")
     public int postUser(@RequestBody User user) throws SQLException {
         return dataProcessor.createUser(user);
     }
 
-    @PostMapping("/business")
+    @PostMapping("/register/business")
     public int postBusiness(@RequestBody Business business) throws SQLException {
         return dataProcessor.createBusiness(business);
     }
 
-    @GetMapping("/campaign")
-    public List<Insights> getCampaigns(
+    @GetMapping("/insights/multi/campaigns")
+    public List<Insights> getCampaignsFromAdAccount(
             @RequestParam String accessToken,
             @RequestParam String adAccountId) throws Exception {
         return dataProcessor.getInsights(adAccountId, accessToken, InsightType.CAMPAIGN);
     }
 
-    @GetMapping("/adset")
-    public List<Insights> getAdsets(
+    @GetMapping("/insights/multi/adsets")
+    public List<Insights> getAdsetsFromCampaign(
             @RequestParam String accessToken,
-            @RequestParam String adAccountId) throws Exception {
-        return dataProcessor.getInsights(adAccountId, accessToken, InsightType.AD_SET);
+            @RequestParam String adsetId) throws Exception {
+        return dataProcessor.getInsights(adsetId, accessToken, InsightType.AD_SET);
     }
 
-    @GetMapping("/ad")
-    public List<Insights> getAds(
+    @GetMapping("/insights/multi/ads")
+    public List<Insights> getAdsFromAdset(
             @RequestParam String accessToken,
-            @RequestParam String adAccountId) throws Exception {
-        return dataProcessor.getInsights(adAccountId, accessToken, InsightType.AD);
+            @RequestParam String adId) throws Exception {
+        return dataProcessor.getInsights(adId, accessToken, InsightType.AD);
     }
 }

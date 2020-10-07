@@ -10,7 +10,7 @@ import java.net.URISyntaxException;
 
 @Configuration
 public class DatabaseConfig {
-    @Bean
+    @Bean(name = "DataSource")
     public BasicDataSource basicDataSource() {
         String dbUrl = System.getenv("JDBC_DATABASE_URL");
         String username = System.getenv("JDBC_DATABASE_USERNAME");

@@ -33,7 +33,7 @@ public class PhoenixDataProcessorIntegrationTests {
         final String testFirstName = "testFirstName";
         final String testLastName = "testLastName";
         final String testUsername = "testUsername";
-        final String testPassword = "testPassword";
+        final String testPassword = "$2a$10$HgzJ1NQwYD1cGwvGTpd28.9vhPh3kL015mnBFhGE/bLnei0q6hTmi";
 
         final ResultSet resultSet = basicDataSource.getConnection().prepareStatement("SELECT * FROM users WHERE firstname = \"testFirstName\"").executeQuery();
         resultSet.next();

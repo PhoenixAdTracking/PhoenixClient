@@ -8,8 +8,9 @@ import com.example.phoenix.models.User;
 import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
 import org.apache.commons.dbcp2.BasicDataSource;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import javax.annotation.Resource;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -46,6 +48,9 @@ public class PhoenixDataProcessor {
      */
     private final BasicDataSource phoenixDb;
 
+    @Resource (name = "PasswordEncoder")
+    private PasswordEncoder passwordEncoder;
+
     private final ExternalDataFetcher externalDataFetcher;
 
     private final InsightsProcessor insightsProcessor;
@@ -65,9 +70,12 @@ public class PhoenixDataProcessor {
      * @return the id of the newly created user.
      * @throws SQLException if there is an issue with executing the SQL query.
      */
-    public int createUser (@NonNull User user) throws SQLException{
-        final String newUserStatement = "INSERT INTO users (username, password, firstname, lastname)"
-                        + " VALUES (\"" + user.getUsername() + "\", \"" + user.getPassword() + "\", \"" + user.getFirstname() + "\", \"" + user.getLastname() + "\");";
+    public int createUser (@NonNull User user) throws SQLException {
+        final String newUserStatement = "INSERT INTO users (username, password, firstname, lastname) VALUES (\""
+                + user.getUsername() + "\", \""
+                + passwordEncoder.encode(user.getPassword()) + "\", \""
+                + user.getFirstname() + "\", \""
+                + user.getLastname() + "\");";
         final int userId = insertRow(newUserStatement, USER_ID_COLUMN);
         final String userToBusinessStatement = "INSERT INTO user_to_business (userId, businessId, active, role)"
                 + " VALUES (" + userId + ", " + user.getBusinessId() + ", 1, \"" + user.getRole() + "\");";
@@ -84,26 +92,6 @@ public class PhoenixDataProcessor {
     public int createBusiness (@NonNull Business business) throws SQLException{
         final String newBusinessStatement = "INSERT INTO businesses (name) VALUES (\"" + business.getName() + "\");";
         return insertRow(newBusinessStatement, BUSINESS_ID_COLUMN);
-    }
-
-    /**
-     * Pull a user's information from the database, if present.
-     * @param username the username to track down.
-     * @return the ResultSet associated with this user.
-     */
-    public Optional<UserDetails> getUser (final String username) throws SQLException{
-        final String getUserQuery = "SELECT * FROM users WHERE userId = \"" + username + "\";";
-        final ResultSet queryResult = pullRows(getUserQuery);
-        if (!queryResult.next()) {
-            return Optional.empty();
-        } else {
-            final String password = queryResult.getString("password");
-            return Optional.of(
-                    org.springframework.security.core.userdetails.User
-                            .withUsername(username)
-                            .password(password)
-                            .build());
-        }
     }
 
     /**
@@ -169,26 +157,21 @@ public class PhoenixDataProcessor {
             @NonNull final String queryTemplate) {
         return adsetInsights.stream()
                 .map(insights -> {
-                    System.out.println("Insight Id: " + insights.getId());
                     int purchaseCounter = 0;
                     double totalAmount = 0.00;
                     try (ResultSet resultSet = pullRows(MessageFormat.format(queryTemplate, insights.getId()))){
-                        System.out.println("Finished Pulling Phoenix Events");
                         while (resultSet.next()) {
-                            System.out.println("= Event Found =");
                             final String interactionType = resultSet.getString("type");
                             if (interactionType.equals("purchase")) {
                                 purchaseCounter++;
                                 totalAmount += Double.valueOf(resultSet.getString("purchaseAmount"));
                             }
                         }
-                        System.out.println("While Loop Finished");
                         return insights.toBuilder()
                                 .phoenixPurchases(purchaseCounter)
                                 .totalSales(totalAmount)
                                 .build();
                     } catch (SQLException sqle) {
-                        System.out.println("SQL Exception: " + sqle.getMessage());
                         return insights;
                     }
                 })
@@ -221,19 +204,12 @@ public class PhoenixDataProcessor {
      */
     private ResultSet pullRows(@NonNull final String query) {
         try {
-            final PreparedStatement sqlStatement = phoenixDb.getConnection().prepareStatement(query);
-            return sqlStatement.executeQuery();
+
+            return phoenixDb.getConnection().prepareStatement(query).executeQuery();
         } catch (SQLException sqle) {
+            System.out.println("Exception");
             System.out.println(sqle.getMessage());
             return null;
         }
-    }
-
-    private List<Insights> getInsights(
-            @NonNull final InsightType insightType,
-            @NonNull final String accessKey,
-            @NonNull final String id) {
-
-        return ImmutableList.of();
     }
 }
