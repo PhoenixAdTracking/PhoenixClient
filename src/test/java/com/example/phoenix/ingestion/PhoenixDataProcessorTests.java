@@ -37,7 +37,7 @@ public class PhoenixDataProcessorTests {
         Mockito.when(mockConnection.prepareStatement(anyString(), anyInt())).thenReturn(mockStatement);
         Mockito.when(mockStatement.getGeneratedKeys()).thenReturn(mockResultSet);
         Mockito.when(mockResultSet.getInt(anyString())).thenReturn(-1);
-        phoenixDataProcessor = new PhoenixDataProcessor(mockDataSource);
+        phoenixDataProcessor = new PhoenixDataProcessor(mockConnection);
     }
 
     @Test

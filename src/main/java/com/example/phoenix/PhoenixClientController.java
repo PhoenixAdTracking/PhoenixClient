@@ -1,8 +1,8 @@
 package com.example.phoenix;
 
-import com.example.phoenix.ingestion.ExternalDataFetcher;
 import com.example.phoenix.ingestion.PhoenixDataProcessor;
 import com.example.phoenix.models.*;
+import lombok.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -49,5 +49,10 @@ public class PhoenixClientController {
             @RequestParam String accessToken,
             @RequestParam String adId) throws Exception {
         return dataProcessor.getInsights(adId, accessToken, InsightType.AD);
+    }
+
+    @PostMapping("/event/click")
+    public long postEvent(@NonNull @RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
+        return dataProcessor.processClickEvent(eventPost);
     }
 }

@@ -1,25 +1,18 @@
 package com.example.phoenix.ingestion;
 
 import com.example.phoenix.InsightsProcessor;
-import com.example.phoenix.models.Business;
-import com.example.phoenix.models.InsightType;
-import com.example.phoenix.models.Insights;
-import com.example.phoenix.models.User;
-import com.google.common.collect.ImmutableList;
+import com.example.phoenix.MissingEventInfoException;
+import com.example.phoenix.models.*;
 import lombok.NonNull;
 import org.apache.commons.dbcp2.BasicDataSource;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import javax.annotation.Resource;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import javax.xml.transform.Result;
+import java.sql.*;
 import java.text.MessageFormat;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -46,21 +39,30 @@ public class PhoenixDataProcessor {
     /**
      * Access point for the Phoenix DB.
      */
-    private final BasicDataSource phoenixDb;
+    private final Connection phoenixConn;
 
-    @Resource (name = "PasswordEncoder")
-    private PasswordEncoder passwordEncoder;
+//    @Resource (name = "PasswordEncoder")
+    private PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    /**
+     * Object used to pull data from various ad host platforms.
+     */
     private final ExternalDataFetcher externalDataFetcher;
 
+    /**
+     * Processor for calculating second-degree metrics from platforms.
+     */
     private final InsightsProcessor insightsProcessor;
 
+    /**
+     * Service for inserting metrics into a google sheet.
+     */
     private final GoogleSheetsService service;
 
-    public PhoenixDataProcessor (@NonNull final BasicDataSource phoenixDb) {
+    public PhoenixDataProcessor (@NonNull final Connection phoenixConn) {
         this.externalDataFetcher = new ExternalDataFetcher();
         this.insightsProcessor = new InsightsProcessor();
-        this.phoenixDb = phoenixDb;
+        this.phoenixConn = phoenixConn;
         this.service = new GoogleSheetsService();
     }
 
@@ -76,10 +78,10 @@ public class PhoenixDataProcessor {
                 + passwordEncoder.encode(user.getPassword()) + "\", \""
                 + user.getFirstname() + "\", \""
                 + user.getLastname() + "\");";
-        final int userId = insertRow(newUserStatement, USER_ID_COLUMN);
+        final int userId = insertRow(newUserStatement);
         final String userToBusinessStatement = "INSERT INTO user_to_business (userId, businessId, active, role)"
                 + " VALUES (" + userId + ", " + user.getBusinessId() + ", 1, \"" + user.getRole() + "\");";
-        insertRow(userToBusinessStatement, USER_TO_BUSINESS_ID_COLUMN);
+        insertRow(userToBusinessStatement);
         return userId;
     }
 
@@ -91,7 +93,7 @@ public class PhoenixDataProcessor {
      */
     public int createBusiness (@NonNull Business business) throws SQLException{
         final String newBusinessStatement = "INSERT INTO businesses (name) VALUES (\"" + business.getName() + "\");";
-        return insertRow(newBusinessStatement, BUSINESS_ID_COLUMN);
+        return insertRow(newBusinessStatement);
     }
 
     /**
@@ -131,9 +133,9 @@ public class PhoenixDataProcessor {
      * @return a deep copy of the parameter Inputs but with Phoenix metrics added to it.
      */
     public List<Insights> addPhoenixMetrics(@NonNull final List<Insights> insights) {
-        final String campaignQuery = "SELECT * FROM adevents WHERE campaignId = {0};";
-        final String adsetQuery = "SELECT * FROM adevents WHERE adsetId = {0};";
-        final String adQuery = "SELECT * FROM adevents WHERE adId = {0};";
+        final String campaignQuery = "SELECT * FROM ad_events WHERE campaignId = {0};";
+        final String adsetQuery = "SELECT * FROM ad_events WHERE adsetId = {0};";
+        final String adQuery = "SELECT * FROM ad_events WHERE adId = {0};";
         final InsightType insightType = insights.stream().map(insight -> insight.getType()).findFirst().orElse(null);
         switch (insightType) {
             case AD:
@@ -179,21 +181,128 @@ public class PhoenixDataProcessor {
     }
 
     /**
+     * Helper method for processing a click ad-event and storing it in the database.
+     * If the event has no ip address attached, an exception is thrown.
+     * If the event has no user attached, a new one is created.
+     * @param event the click event to process
+     * @return The customer Id associated with the event.
+     * @throws MissingEventInfoException
+     * @throws SQLException
+     */
+    public long processClickEvent (@NonNull final EventPost event) throws MissingEventInfoException, SQLException {
+        validateClickEventIsValid(event);
+        final long customerId;
+        final long ipAddressId = registerIpAddress(event.getIpAddress());
+        if (event.getCustomerId() == null) {
+            customerId = insertRow("INSERT INTO customers (email) VALUES (\"placeholder\");");
+        } else {
+            customerId = event.getCustomerId();
+        }
+        connectIpAddressToCustomer(customerId, ipAddressId);
+        final String logEventTemplate = "INSERT INTO ad_events " +
+                "(clientId, ipAddress, type, platform, adId, adsetId, campaignId, customerId) " +
+                "VALUES ({0});";
+        final String adEventValues =
+                event.getClientId() + ","
+                        + "\"" + event.getIpAddress() + "\","
+                        + "\"click\","
+                        + "\"facebook\","
+                        + "\"" + event.getAdId() + "\","
+                        + "\"" + event.getAdsetId() + "\","
+                        + "\"" + event.getCampaignId() + "\","
+                        + customerId;
+        insertRow(MessageFormat.format(logEventTemplate, adEventValues));
+        return customerId;
+    }
+
+    /**
+     * Helper function for validating that a click event has all its required fields for processing.
+     * @param eventPost the EventPost object to validate.
+     * @throws MissingEventInfoException if any required fields are missing
+     */
+    void validateClickEventIsValid(
+            @NonNull final EventPost eventPost) throws MissingEventInfoException {
+        final List<String> missingRequiredFields = new ArrayList<>();
+        if (eventPost.getClientId() == null) {
+            missingRequiredFields.add("client id");
+        }
+        if (eventPost.getAdId() == null) {
+            missingRequiredFields.add("ad id");
+        }
+        if (eventPost.getAdsetId() == null) {
+            missingRequiredFields.add("adset id");
+        }
+        if (eventPost.getCampaignId() == null) {
+            missingRequiredFields.add("campaign id");
+        }
+        if (eventPost.getIpAddress() == null) {
+            missingRequiredFields.add("ip address");
+        }
+        if (!missingRequiredFields.isEmpty()) {
+            final String missingFieldsTemplate = "This event is missing the following required fields: {0}";
+            throw new MissingEventInfoException(
+                    MessageFormat.format(
+                            missingFieldsTemplate,
+                            String.join(",", missingRequiredFields)));
+        }
+    }
+
+    /**
+     * Helper function for obtaining the id of an Ip Address from the database.
+     * @param ipAddress String representing the IP Address to register
+     * @return an integer representing the id of the IP Address in the Phoenix DB.
+     * @throws SQLException
+     */
+    int registerIpAddress(@NonNull final String ipAddress) throws SQLException {
+        final String ipAddressQuery = "SELECT * FROM ip_addresses WHERE address = \"{0}\";";
+        final String ipAddressInsert = "INSERT INTO ip_addresses (address) VALUES (\"{0}\");";
+        final ResultSet ipAddressRows = pullRows(MessageFormat.format(ipAddressQuery, ipAddress));
+        if (ipAddressRows.next()) {
+            return Integer.valueOf(ipAddressRows.getString("ipAddressId"));
+        } else {
+            return insertRow(MessageFormat.format(ipAddressInsert, ipAddress));
+        }
+    }
+
+    /**
+     * Helper function for obtaining the id of the connection between a user and an ip address.
+     * If the user and ip address have not been connected, a connection is created between them.
+     * @param customerId the Customer Id to check for a connection with.
+     * @param addressId the Ip Address Id the check for a connection with.
+     * @return the connection Id.
+     * @throws SQLException
+     */
+    int connectIpAddressToCustomer(
+            @NonNull final long customerId,
+            @NonNull final long addressId) throws SQLException {
+        final String statementTemplate =
+                "SELECT * FROM customer_to_address WHERE customerId = {0} AND addressId = {1};";
+        final ResultSet resultSet = pullRows(
+                MessageFormat.format(statementTemplate, customerId, addressId));
+        if (resultSet.next()) {
+            return Integer.valueOf(resultSet.getString("connectionId"));
+        } else {
+            final String insertTemplate =
+                    "INSERT INTO customer_to_address (customerId, addressId) VALUES ({0}, {1});";
+            return insertRow(
+                    MessageFormat.format(insertTemplate, customerId, addressId));
+        }
+    }
+
+    /**
      * Helper function for running insert queries and returning the id
-     * @param query the query to run to insert new data into the database.
-     * @param idColumn the name of the column that holds the ID for this table.
+     * @param statement the statement to run to insert new data into the database.
      * @return the id number for the newly inserted row.
      * @throws SQLException if there is an issue with executing the SQL query.
      */
-    private int insertRow(
-            @NonNull final String query,
-            @NonNull final String idColumn) throws SQLException{
-        final PreparedStatement sqlStatement = phoenixDb.getConnection().prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+    int insertRow(
+            @NonNull final String statement) throws SQLException{
+        final PreparedStatement sqlStatement =
+                phoenixConn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);
         sqlStatement.executeUpdate();
         final ResultSet resultSet = sqlStatement.getGeneratedKeys();
         resultSet.next();
-        return resultSet.getInt(idColumn);
-
+        return resultSet.getInt(1);
     }
 
     /**
@@ -202,14 +311,20 @@ public class PhoenixDataProcessor {
      * @return ResultSet of the query.
      * @throws SQLException if there is an issue with executing the SQL query.
      */
-    private ResultSet pullRows(@NonNull final String query) {
-        try {
-
-            return phoenixDb.getConnection().prepareStatement(query).executeQuery();
-        } catch (SQLException sqle) {
-            System.out.println("Exception");
-            System.out.println(sqle.getMessage());
-            return null;
-        }
+    ResultSet pullRows(@NonNull final String query) throws SQLException{
+        final PreparedStatement statement = phoenixConn.prepareStatement(query);
+        final ResultSet resultSet = statement.executeQuery();
+        return resultSet;
     }
+
+    /**
+     * Function for executing removal statements.
+     * @param statement SQL statement for removing rows.
+     * @throws SQLException
+     */
+    void removeRow(@NonNull final String statement) throws SQLException{
+        final PreparedStatement sqlStatement = phoenixConn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);
+        sqlStatement.execute(statement);
+    }
+
 }

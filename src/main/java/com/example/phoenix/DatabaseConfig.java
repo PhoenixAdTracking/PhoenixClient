@@ -11,7 +11,7 @@ import java.net.URISyntaxException;
 @Configuration
 public class DatabaseConfig {
     @Bean(name = "DataSource")
-    public BasicDataSource basicDataSource() {
+    public BasicDataSource basicDataSource() throws Exception{
         String dbUrl = System.getenv("JDBC_DATABASE_URL");
         String username = System.getenv("JDBC_DATABASE_USERNAME");
         String password = System.getenv("JDBC_DATABASE_PASSWORD");
@@ -25,7 +25,7 @@ public class DatabaseConfig {
     }
 
     @Bean(name = "PhoenixDB")
-    public PhoenixDataProcessor dataSource() throws URISyntaxException {
-        return new PhoenixDataProcessor(basicDataSource());
+    public PhoenixDataProcessor dataSource() throws URISyntaxException, Exception {
+        return new PhoenixDataProcessor(basicDataSource().getConnection());
     }
 }
