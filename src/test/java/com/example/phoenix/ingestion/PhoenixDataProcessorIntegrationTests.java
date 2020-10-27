@@ -96,7 +96,7 @@ public class PhoenixDataProcessorIntegrationTests {
 
     @Test
     public void testWhenGivenNewIpAddressThenGetIpAddressIdReturnsNewId() throws Exception{
-            final String testIpAddress = "TestIpAddress";
+            final String testIpAddress = "TestIpAddress0";
             dataProcessor.removeRow(MessageFormat.format(
                     "DELETE FROM ip_addresses WHERE address = \"{0}\";",
                     testIpAddress));
