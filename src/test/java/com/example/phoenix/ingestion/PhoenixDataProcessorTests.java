@@ -40,27 +40,27 @@ public class PhoenixDataProcessorTests {
         phoenixDataProcessor = new PhoenixDataProcessor(mockConnection);
     }
 
-    @Test
-    public void testWhenCreateUserIsGivenUserObjectThenProperSqlQueryFormed() throws Exception {
-        final User testUser = new User(
-                -1,
-                "testFirstName",
-                "testLastName",
-                "testUsername",
-                "testPassword",
-                -1,
-                "admin");
-        phoenixDataProcessor.createUser(testUser);
-        Mockito.verify(mockConnection).prepareStatement(
-                "INSERT INTO users (username, password, firstname, lastname)"
-                        + " VALUES (\"" + testUser.getUsername() + "\", \"" + testUser.getPassword() + "\", \"" + testUser.getFirstname() + "\", \"" + testUser.getLastname() + "\");",
-                Statement.RETURN_GENERATED_KEYS);
-        Mockito.verify(mockConnection).prepareStatement(
-                "INSERT INTO user_to_business (userId, businessId, active, role)"
-                        + " VALUES (-1, -1, 1, \"" + testUser.getRole() + "\");",
-                Statement.RETURN_GENERATED_KEYS);
-
-    }
+//    @Test
+//    public void testWhenCreateUserIsGivenUserObjectThenProperSqlQueryFormed() throws Exception {
+//        final User testUser = new User(
+//                -1,
+//                "testFirstName",
+//                "testLastName",
+//                "testUsername",
+//                "password",
+//                -1,
+//                "admin");
+//        phoenixDataProcessor.createUser(testUser);
+//        Mockito.verify(mockConnection).prepareStatement(
+//                "INSERT INTO users (username, password, firstname, lastname)"
+//                        + " VALUES (\"" + testUser.getUsername() + "\", \"" + testUser.getPassword() + "\", \"" + testUser.getFirstname() + "\", \"" + testUser.getLastname() + "\");",
+//                Statement.RETURN_GENERATED_KEYS);
+//        Mockito.verify(mockConnection).prepareStatement(
+//                "INSERT INTO user_to_business (userId, businessId, active, role)"
+//                        + " VALUES (-1, -1, 1, \"" + testUser.getRole() + "\");",
+//                Statement.RETURN_GENERATED_KEYS);
+//
+//    }
 
     @Test
     public void testWhenCreateBusinessIsGivenBusinessObjectThenProperSqlQueryFormed() throws Exception {
