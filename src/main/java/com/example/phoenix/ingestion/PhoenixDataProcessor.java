@@ -13,6 +13,7 @@ import java.sql.*;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -248,6 +249,133 @@ public class PhoenixDataProcessor {
     }
 
     /**
+     * Method for processing a purchase event.
+     * If the e-mail provided matches an existing customer Id that is not the same as the event's customer Id,
+     * then all previous events attributed to the previous customer Id are re-attributed to the pre-existing
+     * customer Id.
+     * @param event the purchase event to process.
+     * @return the customer Id.
+     * @throws MissingEventInfoException
+     * @throws SQLException
+     */
+    public long processPurchaseEvent (@NonNull final EventPost event) throws MissingEventInfoException, SQLException {
+        validatePurchaseEvent(event);
+        final Optional<Long> customerIdFromEmail = findExistingCustomerByEmail(event.getEmail());
+        final Long customerId = customerIdFromEmail.orElse(event.getCustomerId());
+        if (customerIdFromEmail.isPresent() && !customerIdFromEmail.get().equals(event.getCustomerId())) {
+            updateCustomerIdOnAdEvents(event.getCustomerId(), customerIdFromEmail.get());
+            removeCustomer(event.getCustomerId());
+        } else if (!customerIdFromEmail.isPresent()){
+            updateCustomerEmail(customerId, event.getEmail());
+        }
+        final String logEventTemplate = "INSERT INTO ad_events " +
+                "(clientId, ipAddress, type, platform, adId, adsetId, campaignId, customerId, purchaseAmount, email) " +
+                "VALUES ({0}, \"{1}\", \"purchase\", \"facebook\", \"{2}\", \"{3}\", \"{4}\", {5}, {6}, \"{7}\");";
+        insertRow(MessageFormat.format(
+                logEventTemplate,
+                event.getClientId(),
+                event.getIpAddress(),
+                event.getAdId(),
+                event.getAdsetId(),
+                event.getCampaignId(),
+                customerId,
+                event.getPurchaseAmount(),
+                event.getEmail()));
+        return customerId;
+    }
+
+    /**
+     * Locates customers in the database by their email address, if present.
+     * @param customerEmail the email to search for customers by.
+     * @return an optional containing either the found customer's Id or an empty.
+     * @throws SQLException
+     */
+    Optional<Long> findExistingCustomerByEmail (
+            @NonNull final String customerEmail) throws SQLException {
+        final String customerByEmailQuery = "SELECT * FROM customers WHERE email = \"{0}\";";
+        final ResultSet existingCustomerFromEmail = pullRows(MessageFormat.format(customerByEmailQuery, customerEmail));
+        if (existingCustomerFromEmail.next()) {
+            final Long customerId = existingCustomerFromEmail.getLong(1);
+            return Optional.of(customerId);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Updates a customer's Email address.
+     * @param customerId The Id of the customer to update the information of.
+     * @param customerEmail The Email address to update a customer's info to.
+     * @throws SQLException
+     */
+    void updateCustomerEmail(
+            @NonNull final Long customerId,
+            @NonNull final String customerEmail) throws SQLException {
+        final String customerEmailUpdateQuery = "UPDATE customers SET email = \"{0}\" WHERE customerId = {1};";
+        updateRow(MessageFormat.format(customerEmailUpdateQuery, customerEmail, customerId));
+    }
+
+    /**
+     * Helper function for moving attribution of ad events from one customer id to another.
+     * @param customerIdSource the customer Id to move ad events from.
+     * @param customerIdTarget the customer Id to move ad events to.
+     * @throws SQLException
+     */
+    void updateCustomerIdOnAdEvents (
+            @NonNull final Long customerIdSource,
+            @NonNull final Long customerIdTarget) throws SQLException {
+        final String adEventUpdateQuery = "UPDATE ad_events SET customerId = {0} where customerId = {1};";
+        updateRow(MessageFormat.format(adEventUpdateQuery, customerIdTarget, customerIdSource));
+    }
+
+    /**
+     * Hlper function for removing a customer given a customer Id.
+     * @param customerIdToRemove the id of the customer to remove.
+     * @throws SQLException
+     */
+    void removeCustomer (@NonNull final Long customerIdToRemove) throws SQLException {
+        final String removeCustomerQuery = "DELETE FROM customers WHERE customerId = {0};";
+        updateRow(MessageFormat.format(removeCustomerQuery, customerIdToRemove));
+    }
+
+    /**
+     * Helper function for validating that a purchase event has all the required fields for processing.
+     * @param eventPost the event to validate.
+     * @throws MissingEventInfoException
+     */
+    void validatePurchaseEvent(
+            @NonNull final EventPost eventPost) throws MissingEventInfoException{
+        final List<String> missingRequiredFields = new ArrayList<>();
+        if (eventPost.getClientId() == null) {
+            missingRequiredFields.add("client id");
+        }
+        if (eventPost.getAdId() == null) {
+            missingRequiredFields.add("ad id");
+        }
+        if (eventPost.getAdsetId() == null) {
+            missingRequiredFields.add("adset id");
+        }
+        if (eventPost.getCampaignId() == null) {
+            missingRequiredFields.add("campaign id");
+        }
+        if (eventPost.getCustomerId() == null) {
+            missingRequiredFields.add("customer id");
+        }
+        if (eventPost.getEmail() == null) {
+            missingRequiredFields.add("email");
+        }
+        if (eventPost.getPurchaseAmount() == null) {
+            missingRequiredFields.add("purchase amount");
+        }
+        if (!missingRequiredFields.isEmpty()) {
+            final String missingFieldsTemplate = "This event is missing the following required fields: {0}";
+            throw new MissingEventInfoException(
+                    MessageFormat.format(
+                            missingFieldsTemplate,
+                            String.join(",", missingRequiredFields)));
+        }
+    }
+
+    /**
      * Helper function for obtaining the id of an Ip Address from the database.
      * @param ipAddress String representing the IP Address to register
      * @return an integer representing the id of the IP Address in the Phoenix DB.
@@ -322,7 +450,7 @@ public class PhoenixDataProcessor {
      * @param statement SQL statement for removing rows.
      * @throws SQLException
      */
-    void removeRow(@NonNull final String statement) throws SQLException{
+    void updateRow(@NonNull final String statement) throws SQLException{
         final PreparedStatement sqlStatement = phoenixConn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);
         sqlStatement.execute(statement);
     }

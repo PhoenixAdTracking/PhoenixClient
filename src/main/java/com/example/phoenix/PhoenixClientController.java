@@ -51,8 +51,13 @@ public class PhoenixClientController {
         return dataProcessor.getInsights(adId, accessToken, InsightType.AD);
     }
 
-    @PostMapping("/event/click")
-    public long postEvent(@NonNull @RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
+    @PostMapping("/event/visit")
+    public long postVisitEvent(@NonNull @RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
         return dataProcessor.processClickEvent(eventPost);
+    }
+
+    @PostMapping("/event/click")
+    public long postPurchaseEvent(@NonNull @RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
+        return dataProcessor.processPurchaseEvent(eventPost);
     }
 }

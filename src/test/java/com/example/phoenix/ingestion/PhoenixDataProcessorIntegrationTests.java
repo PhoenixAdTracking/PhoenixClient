@@ -2,7 +2,6 @@ package com.example.phoenix.ingestion;
 
 import com.example.phoenix.DatabaseConfig;
 import com.example.phoenix.models.EventPost;
-import com.example.phoenix.models.EventType;
 import com.example.phoenix.models.InsightType;
 import com.example.phoenix.models.Insights;
 import com.google.common.collect.ImmutableList;
@@ -97,12 +96,12 @@ public class PhoenixDataProcessorIntegrationTests {
     @Test
     public void testWhenGivenNewIpAddressThenGetIpAddressIdReturnsNewId() throws Exception{
             final String testIpAddress = "TestIpAddress0";
-            dataProcessor.removeRow(MessageFormat.format(
+            dataProcessor.updateRow(MessageFormat.format(
                     "DELETE FROM ip_addresses WHERE address = \"{0}\";",
                     testIpAddress));
             final int newIpAddressId = dataProcessor.registerIpAddress(testIpAddress);
             Assert.assertNotEquals(-1, newIpAddressId);
-            dataProcessor.removeRow(MessageFormat.format(
+            dataProcessor.updateRow(MessageFormat.format(
                     "DELETE FROM ip_addresses WHERE address = \"{0}\";",
                     testIpAddress));
     }
@@ -117,7 +116,7 @@ public class PhoenixDataProcessorIntegrationTests {
         final String testCampaignId = "testCampaignId";
         final String pullTestRowsQuery = "SELECT * FROM ad_events WHERE customerId = {0};";
         final String deleteTestRowsStatement = "DELETE FROM ad_events WHERE customerId = {0};";
-        dataProcessor.removeRow(MessageFormat.format(deleteTestRowsStatement, testCustomerId));
+        dataProcessor.updateRow(MessageFormat.format(deleteTestRowsStatement, testCustomerId));
         final ResultSet preInsertRows = dataProcessor.pullRows(MessageFormat.format(pullTestRowsQuery, testCustomerId));
         Assert.assertFalse(preInsertRows.next());
         final EventPost testEvent = EventPost.builder()
@@ -131,7 +130,7 @@ public class PhoenixDataProcessorIntegrationTests {
         dataProcessor.processClickEvent(testEvent);
         final ResultSet postInsertRows = dataProcessor.pullRows(MessageFormat.format(pullTestRowsQuery, testCustomerId));
         Assert.assertTrue(postInsertRows.next());
-        dataProcessor.removeRow(MessageFormat.format(deleteTestRowsStatement, testCustomerId));
+        dataProcessor.updateRow(MessageFormat.format(deleteTestRowsStatement, testCustomerId));
     }
 
     @Test
@@ -158,10 +157,10 @@ public class PhoenixDataProcessorIntegrationTests {
             if (!testConnectionIds.isEmpty()) {
                 final String testConnectionIdsString = String.join(",", testConnectionIds);
                 final String testCustomerIdsString = String.join(",", testCustomerIds);
-                dataProcessor.removeRow(MessageFormat.format(testConnectionRowsDeleteStatement, testConnectionIdsString));
-                dataProcessor.removeRow(MessageFormat.format(testCustomerRowsDeleteStatement, testCustomerIdsString));
+                dataProcessor.updateRow(MessageFormat.format(testConnectionRowsDeleteStatement, testConnectionIdsString));
+                dataProcessor.updateRow(MessageFormat.format(testCustomerRowsDeleteStatement, testCustomerIdsString));
             }
-            dataProcessor.removeRow(MessageFormat.format(testAddressRowsDeleteStatement, testIpAddress));
+            dataProcessor.updateRow(MessageFormat.format(testAddressRowsDeleteStatement, testIpAddress));
         }
 
         // Test code to insert event
@@ -198,24 +197,139 @@ public class PhoenixDataProcessorIntegrationTests {
         Assert.assertTrue(testPostInsertEvent.next());
 
         // Remove test rows
-        dataProcessor.removeRow(MessageFormat.format(deleteTestAdEventRowsStatement, testCustomerId));
-        dataProcessor.removeRow(MessageFormat.format(testConnectionRowsDeleteStatement, testPostInsertConnectionRows.getInt(1)));
-        dataProcessor.removeRow(MessageFormat.format(testCustomerRowsDeleteStatement, testCustomerId));
-        dataProcessor.removeRow(MessageFormat.format(testAddressRowsDeleteStatement, testIpAddress));
+        dataProcessor.updateRow(MessageFormat.format(deleteTestAdEventRowsStatement, testCustomerId));
+        dataProcessor.updateRow(MessageFormat.format(testConnectionRowsDeleteStatement, testPostInsertConnectionRows.getInt(1)));
+        dataProcessor.updateRow(MessageFormat.format(testCustomerRowsDeleteStatement, testCustomerId));
+        dataProcessor.updateRow(MessageFormat.format(testAddressRowsDeleteStatement, testIpAddress));
 
     }
 
-    /**
-     * Testing helper function for pulling the primary key.
-     * @param resultSet the resultSet to try to pull a primary key for.
-     * @return an Optional Integer that either contains the primary key of the result set or is empty.
-     * @throws SQLException
-     */
-    private Optional<Integer> getRowId (@NonNull final ResultSet resultSet) throws SQLException {
-        if (resultSet.next()) {
-            return Optional.of(resultSet.getInt(0));
-        } else {
-            return Optional.empty();
-        }
+    @Test
+    public void testWhenGivenEventWithExistingCustomersEmailAddressAndIdThenProcessPurchaseEventLogsEventToCustomerId() throws Exception{
+        final String testIpAddress = "TestIpAddress";
+        final long testClientId = 1;
+        final String testAdId = "testAdId";
+        final String testAdsetId = "testAdsetId";
+        final String testCampaignId = "testCampaignId";
+        final long testCustomerId = 1;
+        final String testEmail = "skeithnine@gmail.com";
+        final double testAmount = 0.99;
+        final EventPost testEvent =
+                EventPost.builder()
+                        .ipAddress(testIpAddress)
+                        .clientId(testClientId)
+                        .adId(testAdId)
+                        .adsetId(testAdsetId)
+                        .campaignId(testCampaignId)
+                        .customerId(testCustomerId)
+                        .email(testEmail)
+                        .purchaseAmount(testAmount)
+                        .build();
+
+        final String deleteTestEvent = "DELETE FROM ad_events WHERE customerId = {0};";
+        final String pullTestEvent = "SELECT * FROM ad_events WHERE customerId = {0};";
+
+        dataProcessor.updateRow(MessageFormat.format(deleteTestEvent, testCustomerId));
+        final ResultSet testResultSetBeforeInsert = dataProcessor.pullRows(MessageFormat.format(pullTestEvent, testCustomerId));
+        Assert.assertFalse(testResultSetBeforeInsert.next());
+
+        dataProcessor.processPurchaseEvent(testEvent);
+
+        final ResultSet testResultSetAfterInsert = dataProcessor.pullRows(MessageFormat.format(pullTestEvent, testCustomerId));
+        Assert.assertTrue(testResultSetAfterInsert.next());
+
+        dataProcessor.updateRow(MessageFormat.format(deleteTestEvent, testCustomerId));
+    }
+
+    @Test
+    public void testWhenGivenEventWithExistingCustomersEmailAddressButNewCustomerIdThenProcessPurchaseEventTransfersEventsToExistingUser() throws Exception{
+        final String testIpAddress = "TestIpAddress";
+        final long testClientId = 1;
+        final String testAdId = "testAdId";
+        final String testAdsetId = "testAdsetId";
+        final String testCampaignId = "testCampaignId";
+        final long testCustomerId = 1;
+        final String testEmail = "skeithnine@gmail.com";
+        final double testAmount = 0.99;
+        final EventPost testEvent;
+
+        final String deleteTestEvent = "DELETE FROM ad_events WHERE customerId = {0};";
+        final String pullTestEvent = "SELECT * FROM ad_events WHERE customerId = {0};";
+        final String insertTestCustomer = "INSERT INTO customers (email) VALUES (\"placeholder\");";
+
+        // Delete all events attached to the test customer Id
+        // Insert a new customer with a placeholder email; store the customer Id
+        // Process a click event with the new customer Id but the test customer Id's email
+        // Check that the new customer Id is not present anymore and that there is no event attached to it.
+        // Check that the customer Id we receive back is the test customer Id.
+        // Delete all events attached to the test customer Id and new customer Id.
+
+        dataProcessor.updateRow(MessageFormat.format(deleteTestEvent, testCustomerId));
+        final ResultSet testResultSetBeforeInsert = dataProcessor.pullRows(MessageFormat.format(pullTestEvent, testCustomerId));
+        Assert.assertFalse(testResultSetBeforeInsert.next());
+
+        final int testNewCustomerId = dataProcessor.insertRow(insertTestCustomer);
+        testEvent = EventPost.builder()
+                .ipAddress(testIpAddress)
+                .clientId(testClientId)
+                .adId(testAdId)
+                .adsetId(testAdsetId)
+                .campaignId(testCampaignId)
+                .customerId((long) testNewCustomerId)
+                .email(testEmail)
+                .purchaseAmount(testAmount)
+                .build();
+
+        dataProcessor.processPurchaseEvent(testEvent);
+
+        final ResultSet testResultSetAfterInsertForExistingCustomerId = dataProcessor.pullRows(MessageFormat.format(pullTestEvent, testCustomerId));
+        final ResultSet testResultSetAfterInsertForNewCustomerId = dataProcessor.pullRows(MessageFormat.format(pullTestEvent, testNewCustomerId));
+        Assert.assertTrue(testResultSetAfterInsertForExistingCustomerId.next());
+        Assert.assertFalse(testResultSetAfterInsertForNewCustomerId.next());
+
+        dataProcessor.updateRow(MessageFormat.format(deleteTestEvent, testCustomerId));
+        dataProcessor.updateRow(MessageFormat.format(deleteTestEvent, testNewCustomerId));
+    }
+
+    @Test
+    public void testWhenGivenEventWithExistingCustomerIdButPlaceholderThenProcessPurchaseEventTransfersEventsToExistingUser() throws Exception{
+        final String testIpAddress = "TestIpAddress";
+        final long testClientId = 1;
+        final String testAdId = "testAdId";
+        final String testAdsetId = "testAdsetId";
+        final String testCampaignId = "testCampaignId";
+        final long testCustomerId;
+        final String testEmail = "realEmail@email.com";
+        final double testAmount = 0.99;
+        final EventPost testEvent;
+
+        final String deleteTestEvent = "DELETE FROM ad_events WHERE customerId = {0};";
+        final String deleteTestCustomer = "DELETE FROM customers WHERE customerId = {0};";
+        final String pullTestEvent = "SELECT * FROM ad_events WHERE customerId = {0};";
+        final String pullTestCustomer = "SELECT * FROM customers WHERE customerId = {0};";
+        final String insertTestCustomer = "INSERT INTO customers (email) VALUES (\"placeholder\");";
+
+        testCustomerId = dataProcessor.insertRow(insertTestCustomer);
+        testEvent = EventPost.builder()
+                .ipAddress(testIpAddress)
+                .clientId(testClientId)
+                .adId(testAdId)
+                .adsetId(testAdsetId)
+                .campaignId(testCampaignId)
+                .customerId(testCustomerId)
+                .email(testEmail)
+                .purchaseAmount(testAmount)
+                .build();
+
+        dataProcessor.processPurchaseEvent(testEvent);
+
+        final ResultSet testAdEventResultSet = dataProcessor.pullRows(MessageFormat.format(pullTestEvent, testCustomerId));
+        Assert.assertTrue(testAdEventResultSet.next());
+        final ResultSet testCustomerResultSet = dataProcessor.pullRows(MessageFormat.format(pullTestCustomer, testCustomerId));
+        Assert.assertTrue(testCustomerResultSet.next());
+        Assert.assertEquals(testEmail, testCustomerResultSet.getString("email"));
+
+        dataProcessor.updateRow(MessageFormat.format(deleteTestEvent, testCustomerId));
+        dataProcessor.updateRow(MessageFormat.format(deleteTestCustomer, testCustomerId));
     }
 }

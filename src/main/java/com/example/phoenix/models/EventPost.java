@@ -51,4 +51,9 @@ public class EventPost {
      * Email address of the customer.
      */
     private final String email;
+
+    /**
+     * The purchase amount of a purchase
+     */
+    private final Double purchaseAmount;
 }
