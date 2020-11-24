@@ -64,7 +64,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
             @NonNull final Authentication authResult) throws IOException, ServletException {
         final User user = (User) authResult.getPrincipal();
         final SecretKey secretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
-        final String token = Jwts.builder()
+        final String token = "Bearer" + Jwts.builder()
                 .signWith(secretKey, SignatureAlgorithm.HS512)
                 .setHeaderParam("type", jwtType)
                 .setIssuer(jwtIssuer)
