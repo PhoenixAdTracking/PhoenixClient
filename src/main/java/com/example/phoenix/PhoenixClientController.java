@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 public class PhoenixClientController {
@@ -52,12 +53,44 @@ public class PhoenixClientController {
     }
 
     @PostMapping("/event/visit")
-    public long postVisitEvent(@NonNull @RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
+    public long postVisitEvent(
+            @RequestParam Long clientId,
+            @RequestParam String adId,
+            @RequestParam String adsetId,
+            @RequestParam String campaignId,
+            @RequestParam String ipAddress,
+            @RequestParam(required = false) Long customerId) throws MissingEventInfoException, SQLException {
+        final EventPost eventPost = EventPost.builder()
+                .clientId(clientId)
+                .adId(adId)
+                .adsetId(adsetId)
+                .campaignId(campaignId)
+                .ipAddress(ipAddress)
+                .customerId(customerId)
+                .build();
         return dataProcessor.processClickEvent(eventPost);
     }
 
-    @PostMapping("/event/click")
-    public long postPurchaseEvent(@NonNull @RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
+    @PostMapping("/event/purchase")
+    public long postPurchaseEvent(
+            @RequestParam Long clientId,
+            @RequestParam String adId,
+            @RequestParam String adsetId,
+            @RequestParam String campaignId,
+            @RequestParam String ipAddress,
+            @RequestParam Long customerId,
+            @RequestParam String email,
+            @RequestParam Double purchaseAmount) throws MissingEventInfoException, SQLException {
+        final EventPost eventPost = EventPost.builder()
+                .clientId(clientId)
+                .adId(adId)
+                .adsetId(adsetId)
+                .campaignId(campaignId)
+                .ipAddress(ipAddress)
+                .customerId(customerId)
+                .email(email)
+                .purchaseAmount(purchaseAmount)
+                .build();
         return dataProcessor.processPurchaseEvent(eventPost);
     }
 }

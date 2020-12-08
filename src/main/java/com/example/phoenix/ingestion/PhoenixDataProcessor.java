@@ -360,6 +360,9 @@ public class PhoenixDataProcessor {
         if (eventPost.getCustomerId() == null) {
             missingRequiredFields.add("customer id");
         }
+        if (eventPost.getIpAddress() == null) {
+            missingRequiredFields.add("ip address");
+        }
         if (eventPost.getEmail() == null) {
             missingRequiredFields.add("email");
         }

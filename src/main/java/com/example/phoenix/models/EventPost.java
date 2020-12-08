@@ -38,11 +38,6 @@ public class EventPost {
     private final String ipAddress;
 
     /**
-     * The event type.
-     */
-    private final EventType eventType;
-
-    /**
      * Id of the customer that initiated the interaction
      */
     private final Long customerId;
