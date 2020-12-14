@@ -88,12 +88,12 @@ public class PhoenixDataProcessor {
 
     /**
      * Method for creating a new business.
-     * @param business a Business POJO object
+     * @param businessName the name of the business.
      * @return the id of the newly created business.
      * @throws SQLException if there is an issue with executing the SQL query.
      */
-    public int createBusiness (@NonNull Business business) throws SQLException{
-        final String newBusinessStatement = "INSERT INTO businesses (name) VALUES (\"" + business.getName() + "\");";
+    public int createBusiness (@NonNull String businessName) throws SQLException{
+        final String newBusinessStatement = "INSERT INTO businesses (name) VALUES (\"" + businessName + "\");";
         return insertRow(newBusinessStatement);
     }
 

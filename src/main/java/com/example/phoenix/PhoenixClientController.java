@@ -27,8 +27,8 @@ public class PhoenixClientController {
     }
 
     @PostMapping("/register/business")
-    public int postBusiness(@RequestBody Business business) throws SQLException {
-        return dataProcessor.createBusiness(business);
+    public int postBusiness(@RequestParam String businessName) throws SQLException {
+        return dataProcessor.createBusiness(businessName);
     }
 
     @GetMapping("/insights/multi/campaigns")

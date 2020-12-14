@@ -65,8 +65,7 @@ public class PhoenixDataProcessorTests {
     @Test
     public void testWhenCreateBusinessIsGivenBusinessObjectThenProperSqlQueryFormed() throws Exception {
         final String testName = "testName";
-        final Business testBusiness = new Business(-1, testName);
-        phoenixDataProcessor.createBusiness(testBusiness);
+        phoenixDataProcessor.createBusiness(testName);
         Mockito.verify(mockConnection).prepareStatement(
                 "INSERT INTO businesses (name) VALUES (\"" + testName + "\");",
                 Statement.RETURN_GENERATED_KEYS);
