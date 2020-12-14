@@ -13,11 +13,6 @@ import lombok.Generated;
 public class User {
 
     /**
-     * The id of the user.
-     */
-    private int id;
-
-    /**
      * The first name of the user.
      */
     private String firstname;
