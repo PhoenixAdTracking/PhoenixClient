@@ -26,6 +26,6 @@ public class DatabaseConfig {
 
     @Bean(name = "PhoenixDB")
     public PhoenixDataProcessor dataSource() throws URISyntaxException, Exception {
-        return new PhoenixDataProcessor(basicDataSource().getConnection());
+        return new PhoenixDataProcessor(basicDataSource());
     }
 }

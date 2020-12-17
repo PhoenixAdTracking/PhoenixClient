@@ -40,7 +40,7 @@ public class PhoenixDataProcessor {
     /**
      * Access point for the Phoenix DB.
      */
-    private final Connection phoenixConn;
+    private final BasicDataSource dataSource;
 
 //    @Resource (name = "PasswordEncoder")
     private PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -60,10 +60,10 @@ public class PhoenixDataProcessor {
      */
     private final GoogleSheetsService service;
 
-    public PhoenixDataProcessor (@NonNull final Connection phoenixConn) {
+    public PhoenixDataProcessor (@NonNull final BasicDataSource dataSource) {
         this.externalDataFetcher = new ExternalDataFetcher();
         this.insightsProcessor = new InsightsProcessor();
-        this.phoenixConn = phoenixConn;
+        this.dataSource = dataSource;
         this.service = new GoogleSheetsService();
     }
 
@@ -74,15 +74,18 @@ public class PhoenixDataProcessor {
      * @throws SQLException if there is an issue with executing the SQL query.
      */
     public int createUser (@NonNull User user) throws SQLException {
-        final String newUserStatement = "INSERT INTO users (username, password, firstname, lastname) VALUES (\""
+        final Connection connection = dataSource.getConnection();
+        final String newUserStatement = "INSERT INTO users (username, password, firstname, lastname, authority) VALUES (\""
                 + user.getUsername() + "\", \""
                 + passwordEncoder.encode(user.getPassword()) + "\", \""
                 + user.getFirstname() + "\", \""
-                + user.getLastname() + "\");";
-        final int userId = insertRow(newUserStatement);
+                + user.getLastname() + "\", \""
+                + user.getRole() + "\");";
+        final int userId = insertRow(connection, newUserStatement);
         final String userToBusinessStatement = "INSERT INTO user_to_business (userId, businessId, active, role)"
                 + " VALUES (" + userId + ", " + user.getBusinessId() + ", 1, \"" + user.getRole() + "\");";
-        insertRow(userToBusinessStatement);
+        insertRow(connection, userToBusinessStatement);
+        connection.close();
         return userId;
     }
 
@@ -94,7 +97,10 @@ public class PhoenixDataProcessor {
      */
     public int createBusiness (@NonNull String businessName) throws SQLException{
         final String newBusinessStatement = "INSERT INTO businesses (name) VALUES (\"" + businessName + "\");";
-        return insertRow(newBusinessStatement);
+        final Connection connection = dataSource.getConnection();
+        final int businessId = insertRow(connection, newBusinessStatement);
+        connection.close();
+        return businessId;
     }
 
     /**
@@ -133,7 +139,7 @@ public class PhoenixDataProcessor {
      * @param insights the Insights for ad objects.
      * @return a deep copy of the parameter Inputs but with Phoenix metrics added to it.
      */
-    public List<Insights> addPhoenixMetrics(@NonNull final List<Insights> insights) {
+    public List<Insights> addPhoenixMetrics(@NonNull final List<Insights> insights) throws SQLException{
         final String campaignQuery = "SELECT * FROM ad_events WHERE campaignId = {0};";
         final String adsetQuery = "SELECT * FROM ad_events WHERE adsetId = {0};";
         final String adQuery = "SELECT * FROM ad_events WHERE adId = {0};";
@@ -157,12 +163,13 @@ public class PhoenixDataProcessor {
      */
     private List<Insights> addPhoenixMetrics(
             @NonNull final List<Insights> adsetInsights,
-            @NonNull final String queryTemplate) {
-        return adsetInsights.stream()
+            @NonNull final String queryTemplate) throws SQLException{
+        final Connection connection = dataSource.getConnection();
+        final List<Insights> returnInsights = adsetInsights.stream()
                 .map(insights -> {
                     int purchaseCounter = 0;
                     double totalAmount = 0.00;
-                    try (ResultSet resultSet = pullRows(MessageFormat.format(queryTemplate, insights.getId()))){
+                    try (ResultSet resultSet = pullRows(connection, MessageFormat.format(queryTemplate, insights.getId()))){
                         while (resultSet.next()) {
                             final String interactionType = resultSet.getString("type");
                             if (interactionType.equals("purchase")) {
@@ -179,6 +186,8 @@ public class PhoenixDataProcessor {
                     }
                 })
                 .collect(Collectors.toList());
+        connection.close();
+        return returnInsights;
     }
 
     /**
@@ -193,13 +202,14 @@ public class PhoenixDataProcessor {
     public long processClickEvent (@NonNull final EventPost event) throws MissingEventInfoException, SQLException {
         validateClickEventIsValid(event);
         final long customerId;
-        final long ipAddressId = registerIpAddress(event.getIpAddress());
+        final Connection connection = dataSource.getConnection();
+        final long ipAddressId = registerIpAddress(event.getIpAddress(), connection);
         if (event.getCustomerId() == null) {
-            customerId = insertRow("INSERT INTO customers (email) VALUES (\"placeholder\");");
+            customerId = insertRow(connection,"INSERT INTO customers (email) VALUES (\"placeholder\");");
         } else {
             customerId = event.getCustomerId();
         }
-        connectIpAddressToCustomer(customerId, ipAddressId);
+        connectIpAddressToCustomer(customerId, ipAddressId, connection);
         final String logEventTemplate = "INSERT INTO ad_events " +
                 "(clientId, ipAddress, type, platform, adId, adsetId, campaignId, customerId) " +
                 "VALUES ({0});";
@@ -212,7 +222,8 @@ public class PhoenixDataProcessor {
                         + "\"" + event.getAdsetId() + "\","
                         + "\"" + event.getCampaignId() + "\","
                         + customerId;
-        insertRow(MessageFormat.format(logEventTemplate, adEventValues));
+        insertRow(connection, MessageFormat.format(logEventTemplate, adEventValues));
+        connection.close();
         return customerId;
     }
 
@@ -260,7 +271,8 @@ public class PhoenixDataProcessor {
      */
     public long processPurchaseEvent (@NonNull final EventPost event) throws MissingEventInfoException, SQLException {
         validatePurchaseEvent(event);
-        final Optional<Long> customerIdFromEmail = findExistingCustomerByEmail(event.getEmail());
+        final Connection connection = dataSource.getConnection();
+        final Optional<Long> customerIdFromEmail = findExistingCustomerByEmail(event.getEmail(), connection);
         final Long customerId = customerIdFromEmail.orElse(event.getCustomerId());
         if (customerIdFromEmail.isPresent() && !customerIdFromEmail.get().equals(event.getCustomerId())) {
             updateCustomerIdOnAdEvents(event.getCustomerId(), customerIdFromEmail.get());
@@ -271,16 +283,19 @@ public class PhoenixDataProcessor {
         final String logEventTemplate = "INSERT INTO ad_events " +
                 "(clientId, ipAddress, type, platform, adId, adsetId, campaignId, customerId, purchaseAmount, email) " +
                 "VALUES ({0}, \"{1}\", \"purchase\", \"facebook\", \"{2}\", \"{3}\", \"{4}\", {5}, {6}, \"{7}\");";
-        insertRow(MessageFormat.format(
-                logEventTemplate,
-                event.getClientId(),
-                event.getIpAddress(),
-                event.getAdId(),
-                event.getAdsetId(),
-                event.getCampaignId(),
-                customerId,
-                event.getPurchaseAmount(),
-                event.getEmail()));
+        insertRow(
+                connection,
+                MessageFormat.format(
+                        logEventTemplate,
+                        event.getClientId(),
+                        event.getIpAddress(),
+                        event.getAdId(),
+                        event.getAdsetId(),
+                        event.getCampaignId(),
+                        customerId,
+                        event.getPurchaseAmount(),
+                        event.getEmail()));
+        connection.close();
         return customerId;
     }
 
@@ -291,9 +306,10 @@ public class PhoenixDataProcessor {
      * @throws SQLException
      */
     Optional<Long> findExistingCustomerByEmail (
-            @NonNull final String customerEmail) throws SQLException {
+            @NonNull final String customerEmail,
+            @NonNull final Connection connection) throws SQLException {
         final String customerByEmailQuery = "SELECT * FROM customers WHERE email = \"{0}\";";
-        final ResultSet existingCustomerFromEmail = pullRows(MessageFormat.format(customerByEmailQuery, customerEmail));
+        final ResultSet existingCustomerFromEmail = pullRows(connection, MessageFormat.format(customerByEmailQuery, customerEmail));
         if (existingCustomerFromEmail.next()) {
             final Long customerId = existingCustomerFromEmail.getLong(1);
             return Optional.of(customerId);
@@ -311,7 +327,9 @@ public class PhoenixDataProcessor {
             @NonNull final Long customerId,
             @NonNull final String customerEmail) throws SQLException {
         final String customerEmailUpdateQuery = "UPDATE customers SET email = \"{0}\" WHERE customerId = {1};";
-        updateRow(MessageFormat.format(customerEmailUpdateQuery, customerEmail, customerId));
+        final Connection connection = dataSource.getConnection();
+        updateRow(connection, MessageFormat.format(customerEmailUpdateQuery, customerEmail, customerId));
+        connection.close();
     }
 
     /**
@@ -324,7 +342,9 @@ public class PhoenixDataProcessor {
             @NonNull final Long customerIdSource,
             @NonNull final Long customerIdTarget) throws SQLException {
         final String adEventUpdateQuery = "UPDATE ad_events SET customerId = {0} where customerId = {1};";
-        updateRow(MessageFormat.format(adEventUpdateQuery, customerIdTarget, customerIdSource));
+        final Connection connection = dataSource.getConnection();
+        updateRow(connection, MessageFormat.format(adEventUpdateQuery, customerIdTarget, customerIdSource));
+        connection.close();
     }
 
     /**
@@ -334,7 +354,9 @@ public class PhoenixDataProcessor {
      */
     void removeCustomer (@NonNull final Long customerIdToRemove) throws SQLException {
         final String removeCustomerQuery = "DELETE FROM customers WHERE customerId = {0};";
-        updateRow(MessageFormat.format(removeCustomerQuery, customerIdToRemove));
+        final Connection connection = dataSource.getConnection();
+        updateRow(connection, MessageFormat.format(removeCustomerQuery, customerIdToRemove));
+        connection.close();
     }
 
     /**
@@ -384,14 +406,16 @@ public class PhoenixDataProcessor {
      * @return an integer representing the id of the IP Address in the Phoenix DB.
      * @throws SQLException
      */
-    int registerIpAddress(@NonNull final String ipAddress) throws SQLException {
+    int registerIpAddress(
+            @NonNull final String ipAddress,
+            @NonNull final Connection phoenixConn) throws SQLException {
         final String ipAddressQuery = "SELECT * FROM ip_addresses WHERE address = \"{0}\";";
         final String ipAddressInsert = "INSERT INTO ip_addresses (address) VALUES (\"{0}\");";
-        final ResultSet ipAddressRows = pullRows(MessageFormat.format(ipAddressQuery, ipAddress));
+        final ResultSet ipAddressRows = pullRows(phoenixConn, MessageFormat.format(ipAddressQuery, ipAddress));
         if (ipAddressRows.next()) {
             return Integer.valueOf(ipAddressRows.getString("ipAddressId"));
         } else {
-            return insertRow(MessageFormat.format(ipAddressInsert, ipAddress));
+            return insertRow(phoenixConn, MessageFormat.format(ipAddressInsert, ipAddress));
         }
     }
 
@@ -405,10 +429,12 @@ public class PhoenixDataProcessor {
      */
     int connectIpAddressToCustomer(
             @NonNull final long customerId,
-            @NonNull final long addressId) throws SQLException {
+            @NonNull final long addressId,
+            @NonNull final Connection phoenixConn) throws SQLException {
         final String statementTemplate =
                 "SELECT * FROM customer_to_address WHERE customerId = {0} AND addressId = {1};";
         final ResultSet resultSet = pullRows(
+                phoenixConn,
                 MessageFormat.format(statementTemplate, customerId, addressId));
         if (resultSet.next()) {
             return Integer.valueOf(resultSet.getString("connectionId"));
@@ -416,6 +442,7 @@ public class PhoenixDataProcessor {
             final String insertTemplate =
                     "INSERT INTO customer_to_address (customerId, addressId) VALUES ({0}, {1});";
             return insertRow(
+                    phoenixConn,
                     MessageFormat.format(insertTemplate, customerId, addressId));
         }
     }
@@ -427,13 +454,16 @@ public class PhoenixDataProcessor {
      * @throws SQLException if there is an issue with executing the SQL query.
      */
     int insertRow(
+            @NonNull Connection phoenixConn,
             @NonNull final String statement) throws SQLException{
         final PreparedStatement sqlStatement =
                 phoenixConn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);
         sqlStatement.executeUpdate();
         final ResultSet resultSet = sqlStatement.getGeneratedKeys();
         resultSet.next();
-        return resultSet.getInt(1);
+        final int insertRowId = resultSet.getInt(1);
+        closeStatements(resultSet);
+        return insertRowId;
     }
 
     /**
@@ -442,7 +472,9 @@ public class PhoenixDataProcessor {
      * @return ResultSet of the query.
      * @throws SQLException if there is an issue with executing the SQL query.
      */
-    ResultSet pullRows(@NonNull final String query) throws SQLException{
+    ResultSet pullRows(
+            @NonNull Connection phoenixConn,
+            @NonNull final String query) throws SQLException{
         final PreparedStatement statement = phoenixConn.prepareStatement(query);
         final ResultSet resultSet = statement.executeQuery();
         return resultSet;
@@ -453,9 +485,17 @@ public class PhoenixDataProcessor {
      * @param statement SQL statement for removing rows.
      * @throws SQLException
      */
-    void updateRow(@NonNull final String statement) throws SQLException{
+    void updateRow(
+            @NonNull final Connection phoenixConn,
+            @NonNull final String statement) throws SQLException{
         final PreparedStatement sqlStatement = phoenixConn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);
         sqlStatement.execute(statement);
+    }
+
+    void closeStatements(@NonNull final ResultSet resultSet) throws SQLException{
+        final Statement statement = resultSet.getStatement();
+        resultSet.close();
+        statement.close();
     }
 
 }
