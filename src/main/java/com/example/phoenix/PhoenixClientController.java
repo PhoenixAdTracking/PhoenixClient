@@ -8,7 +8,6 @@ import javax.annotation.Resource;
 import java.sql.SQLException;
 import java.util.List;
 
-@CrossOrigin(origins = "chrome-extension://peejignbmoiaokhlebpmjpfgmnobojdj", maxAge = 60)
 @RestController
 public class PhoenixClientController {
 
