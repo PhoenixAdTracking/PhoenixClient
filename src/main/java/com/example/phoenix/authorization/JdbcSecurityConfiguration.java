@@ -60,8 +60,8 @@ public class JdbcSecurityConfiguration extends WebSecurityConfigurerAdapter {
                         jwtType))
                 .authorizeRequests(authorizeRequests ->
                         authorizeRequests
-                                .antMatchers("/campaigns", "/adsets", "/ads").permitAll()
-                                .antMatchers("/ping", "/login").hasAuthority("USER"))
+                                .antMatchers("/register/**", "/login", "/ping", "/event/**").permitAll()
+                                .antMatchers("/insights/**").hasAuthority("USER"))
                 .httpBasic().realmName("phoenix")
                 .and()
                 .sessionManagement()
