@@ -8,6 +8,7 @@ import javax.annotation.Resource;
 import java.sql.SQLException;
 import java.util.List;
 
+@CrossOrigin(maxAge = 3600)
 @RestController
 public class PhoenixClientController {
 
