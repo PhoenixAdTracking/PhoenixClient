@@ -169,7 +169,7 @@ public class PhoenixDataProcessor {
                 .map(insights -> {
                     int purchaseCounter = 0;
                     double totalAmount = 0.00;
-                    try (ResultSet resultSet = pullRows(connection, MessageFormat.format(queryTemplate, insights.getId()))){
+                    try (ResultSet resultSet = pullRows(connection, MessageFormat.format(queryTemplate, String.valueOf(insights.getId())))){
                         while (resultSet.next()) {
                             final String interactionType = resultSet.getString("type");
                             if (interactionType.equals("purchase")) {
@@ -287,12 +287,12 @@ public class PhoenixDataProcessor {
                 connection,
                 MessageFormat.format(
                         logEventTemplate,
-                        event.getClientId(),
-                        event.getIpAddress(),
-                        event.getAdId(),
-                        event.getAdsetId(),
-                        event.getCampaignId(),
-                        customerId,
+                        String.valueOf(event.getClientId()),
+                        String.valueOf(event.getIpAddress()),
+                        String.valueOf(event.getAdId()),
+                        String.valueOf(event.getAdsetId()),
+                        String.valueOf(event.getCampaignId()),
+                        String.valueOf(customerId),
                         event.getPurchaseAmount(),
                         event.getEmail()));
         connection.close();
@@ -328,7 +328,7 @@ public class PhoenixDataProcessor {
             @NonNull final String customerEmail) throws SQLException {
         final String customerEmailUpdateQuery = "UPDATE customers SET email = \"{0}\" WHERE customerId = {1};";
         final Connection connection = dataSource.getConnection();
-        updateRow(connection, MessageFormat.format(customerEmailUpdateQuery, customerEmail, customerId));
+        updateRow(connection, MessageFormat.format(customerEmailUpdateQuery, customerEmail, String.valueOf(customerId)));
         connection.close();
     }
 
@@ -343,7 +343,7 @@ public class PhoenixDataProcessor {
             @NonNull final Long customerIdTarget) throws SQLException {
         final String adEventUpdateQuery = "UPDATE ad_events SET customerId = {0} where customerId = {1};";
         final Connection connection = dataSource.getConnection();
-        updateRow(connection, MessageFormat.format(adEventUpdateQuery, customerIdTarget, customerIdSource));
+        updateRow(connection, MessageFormat.format(adEventUpdateQuery, String.valueOf(customerIdTarget), String.valueOf(customerIdSource)));
         connection.close();
     }
 
@@ -355,7 +355,7 @@ public class PhoenixDataProcessor {
     void removeCustomer (@NonNull final Long customerIdToRemove) throws SQLException {
         final String removeCustomerQuery = "DELETE FROM customers WHERE customerId = {0};";
         final Connection connection = dataSource.getConnection();
-        updateRow(connection, MessageFormat.format(removeCustomerQuery, customerIdToRemove));
+        updateRow(connection, MessageFormat.format(removeCustomerQuery, String.valueOf(customerIdToRemove)));
         connection.close();
     }
 
@@ -435,7 +435,7 @@ public class PhoenixDataProcessor {
                 "SELECT * FROM customer_to_address WHERE customerId = {0} AND addressId = {1};";
         final ResultSet resultSet = pullRows(
                 phoenixConn,
-                MessageFormat.format(statementTemplate, customerId, addressId));
+                MessageFormat.format(statementTemplate, String.valueOf(customerId), String.valueOf(addressId)));
         if (resultSet.next()) {
             return Integer.valueOf(resultSet.getString("connectionId"));
         } else {
@@ -443,7 +443,7 @@ public class PhoenixDataProcessor {
                     "INSERT INTO customer_to_address (customerId, addressId) VALUES ({0}, {1});";
             return insertRow(
                     phoenixConn,
-                    MessageFormat.format(insertTemplate, customerId, addressId));
+                    MessageFormat.format(insertTemplate, String.valueOf(customerId), String.valueOf(addressId)));
         }
     }
 

@@ -182,7 +182,7 @@ public class PhoenixDataProcessorIntegrationTests {
             final ResultSet testPreInsertAddressRows = dataProcessor.pullRows(connection, MessageFormat.format(testAddressRowsQuery, testIpAddress));
             if (testPreInsertAddressRows.next()) {
                 final int testIpAddressId = testPreInsertAddressRows.getInt(1);
-                final ResultSet testConnectionRows = dataProcessor.pullRows(connection, MessageFormat.format(testConnectionRowsQuery, testIpAddressId));
+                final ResultSet testConnectionRows = dataProcessor.pullRows(connection, MessageFormat.format(testConnectionRowsQuery, String.valueOf(testIpAddressId)));
                 final List<String> testConnectionIds = new ArrayList<>();
                 final List<String> testCustomerIds = new ArrayList<>();
                 while (testConnectionRows.next()) {
@@ -215,21 +215,21 @@ public class PhoenixDataProcessorIntegrationTests {
             Assert.assertTrue(testPostInsertIpAddress.next());
             // Check for Address-to-Customer Connection rows connected to the test IP Address
             final int testPostInsertIpAddressId = testPostInsertIpAddress.getInt(1);
-            final ResultSet testPostInsertConnectionRows = dataProcessor.pullRows(connection, MessageFormat.format(testConnectionRowsQuery, testPostInsertIpAddressId));
+            final ResultSet testPostInsertConnectionRows = dataProcessor.pullRows(connection, MessageFormat.format(testConnectionRowsQuery, String.valueOf(testPostInsertIpAddressId)));
             Assert.assertTrue(testPostInsertConnectionRows.next());
             // Check for a new customer row connected to the test IP Address
             final int testPostInsertCustomerId = testPostInsertConnectionRows.getInt("customerId");
             Assert.assertEquals(testCustomerId, testPostInsertCustomerId, 0);
-            final ResultSet testPostInsertCustomerRows = dataProcessor.pullRows(connection, MessageFormat.format(testCustomerRowsQuery, testCustomerId));
+            final ResultSet testPostInsertCustomerRows = dataProcessor.pullRows(connection, MessageFormat.format(testCustomerRowsQuery, String.valueOf(testCustomerId)));
             Assert.assertTrue(testPostInsertCustomerRows.next());
             // Check that there is a new event attached to the newly created Customer
-            final ResultSet testPostInsertEvent = dataProcessor.pullRows(connection, MessageFormat.format(pullTestRowsQuery, testCustomerId));
+            final ResultSet testPostInsertEvent = dataProcessor.pullRows(connection, MessageFormat.format(pullTestRowsQuery, String.valueOf(testCustomerId)));
             Assert.assertTrue(testPostInsertEvent.next());
             // Remove test rows
-            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestAdEventRowsStatement, testCustomerId));
+            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestAdEventRowsStatement, String.valueOf(testCustomerId)));
             dataProcessor.updateRow(connection, MessageFormat.format(testConnectionRowsDeleteStatement, testPostInsertConnectionRows.getInt(1)));
-            dataProcessor.updateRow(connection, MessageFormat.format(testCustomerRowsDeleteStatement, testCustomerId));
-            dataProcessor.updateRow(connection, MessageFormat.format(testAddressRowsDeleteStatement, testIpAddress));
+            dataProcessor.updateRow(connection, MessageFormat.format(testCustomerRowsDeleteStatement, String.valueOf(testCustomerId)));
+            dataProcessor.updateRow(connection, MessageFormat.format(testAddressRowsDeleteStatement, String.valueOf(testIpAddress)));
         } finally {
             connection.close();
         }
@@ -301,8 +301,8 @@ public class PhoenixDataProcessorIntegrationTests {
             // Check that the customer Id we receive back is the test customer Id.
             // Delete all events attached to the test customer Id and new customer Id.
 
-            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, testCustomerId));
-            final ResultSet testResultSetBeforeInsert = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, testCustomerId));
+            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, String.valueOf(testCustomerId)));
+            final ResultSet testResultSetBeforeInsert = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, String.valueOf(testCustomerId)));
             Assert.assertFalse(testResultSetBeforeInsert.next());
 
             final int testNewCustomerId = dataProcessor.insertRow(connection, insertTestCustomer);
@@ -319,13 +319,13 @@ public class PhoenixDataProcessorIntegrationTests {
 
             dataProcessor.processPurchaseEvent(testEvent);
 
-            final ResultSet testResultSetAfterInsertForExistingCustomerId = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, testCustomerId));
-            final ResultSet testResultSetAfterInsertForNewCustomerId = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, testNewCustomerId));
+            final ResultSet testResultSetAfterInsertForExistingCustomerId = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, String.valueOf(testCustomerId)));
+            final ResultSet testResultSetAfterInsertForNewCustomerId = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, String.valueOf(testNewCustomerId)));
             Assert.assertTrue(testResultSetAfterInsertForExistingCustomerId.next());
             Assert.assertFalse(testResultSetAfterInsertForNewCustomerId.next());
 
-            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, testCustomerId));
-            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, testNewCustomerId));
+            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, String.valueOf(testCustomerId)));
+            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, String.valueOf(testNewCustomerId)));
         } finally {
             connection.close();
         }
@@ -365,14 +365,14 @@ public class PhoenixDataProcessorIntegrationTests {
 
             dataProcessor.processPurchaseEvent(testEvent);
 
-            final ResultSet testAdEventResultSet = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, testCustomerId));
+            final ResultSet testAdEventResultSet = dataProcessor.pullRows(connection, MessageFormat.format(pullTestEvent, String.valueOf(testCustomerId)));
             Assert.assertTrue(testAdEventResultSet.next());
-            final ResultSet testCustomerResultSet = dataProcessor.pullRows(connection, MessageFormat.format(pullTestCustomer, testCustomerId));
+            final ResultSet testCustomerResultSet = dataProcessor.pullRows(connection, MessageFormat.format(pullTestCustomer, String.valueOf(testCustomerId)));
             Assert.assertTrue(testCustomerResultSet.next());
             Assert.assertEquals(testEmail, testCustomerResultSet.getString("email"));
 
-            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, testCustomerId));
-            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestCustomer, testCustomerId));
+            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestEvent, String.valueOf(testCustomerId)));
+            dataProcessor.updateRow(connection, MessageFormat.format(deleteTestCustomer, String.valueOf(testCustomerId)));
         } finally {
             connection.close();
         }
