@@ -57,6 +57,10 @@ public class PhoenixClientController {
         return dataProcessor.processPurchaseEvent(eventPost);
     }
 
+    @RequestMapping(
+            value = "/**",
+            method = RequestMethod.OPTIONS
+    )
     public ResponseEntity handle() {
         return new ResponseEntity(HttpStatus.OK);
     }
