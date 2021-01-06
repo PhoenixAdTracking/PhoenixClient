@@ -45,7 +45,7 @@ public class JdbcSecurityConfiguration extends WebSecurityConfigurerAdapter {
     protected void configure(HttpSecurity http) throws Exception {
         jwtSecret = System.getenv("JWT_SECRET");
 
-        http.cors().and()
+        http.csrf().disable().cors().and()
                 .addFilter(new JwtAuthenticationFilter(
                         authenticationManager(),
                         jwtAudience,

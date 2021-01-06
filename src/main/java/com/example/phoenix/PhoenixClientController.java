@@ -2,9 +2,6 @@ package com.example.phoenix;
 
 import com.example.phoenix.ingestion.PhoenixDataProcessor;
 import com.example.phoenix.models.*;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
