@@ -2,7 +2,6 @@ package com.example.phoenix;
 
 import com.example.phoenix.ingestion.PhoenixDataProcessor;
 import com.example.phoenix.models.*;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,7 +10,7 @@ import javax.annotation.Resource;
 import java.sql.SQLException;
 import java.util.List;
 
-@CrossOrigin("*")
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 public class PhoenixClientController {
 
@@ -56,5 +55,13 @@ public class PhoenixClientController {
     @PostMapping("/event/purchase")
     public long postPurchaseEvent(@RequestBody EventPost eventPost) throws MissingEventInfoException, SQLException {
         return dataProcessor.processPurchaseEvent(eventPost);
+    }
+
+    @RequestMapping(
+            value = "/**",
+            method = RequestMethod.OPTIONS
+    )
+    public ResponseEntity handle() {
+        return new ResponseEntity(HttpStatus.OK);
     }
 }
