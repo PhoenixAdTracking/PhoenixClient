@@ -31,8 +31,10 @@ public class PhoenixClientController {
     }
 
     @GetMapping("/insights/multi/campaigns")
-    public List<Insights> getCampaignsFromAdAccount(@RequestBody CampaignsRequest request) throws Exception {
-        return dataProcessor.getInsights(request.getAdAccountId(), request.getAccessToken(), InsightType.CAMPAIGN);
+    public List<Insights> getCampaignsFromAdAccount
+            (@RequestParam String adAccountId,
+             @RequestParam String accessToken) throws Exception {
+        return dataProcessor.getInsights(adAccountId, accessToken, InsightType.CAMPAIGN);
     }
 
     @GetMapping("/insights/multi/adsets")
